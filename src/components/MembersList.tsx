@@ -113,8 +113,8 @@ const MembersList = ({
             messageCount: 0,
         });
 
-        // For private channels, use actual member list
-        if (isPrivateChannel && channelMembers.length > 0) {
+        // Always use actual member list from channel
+        if (channelMembers.length > 0) {
             channelMembers.forEach(memberId => {
                 if (memberId !== currentUserId) {
                     const user = allUsers.find(u => u.uid === memberId);
@@ -161,7 +161,7 @@ const MembersList = ({
             if (b.odUserId === currentUserId) return 1;
             return b.messageCount - a.messageCount;
         });
-    }, [roomMessages, currentUserId, currentUserName, currentUserPhoto, isPrivateChannel, channelMembers, allUsers]);
+    }, [roomMessages, currentUserId, currentUserName, currentUserPhoto, channelMembers, allUsers]);
 
     return (
         <Container>
