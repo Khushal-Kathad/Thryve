@@ -9,6 +9,7 @@ import {
     query,
     where,
     orderBy,
+    limit,
     serverTimestamp,
     Unsubscribe,
 } from 'firebase/firestore';
@@ -72,13 +73,13 @@ class UserService {
     }
 
     // Listen for all users (real-time)
-    listenForUsers(onUsersChange: (users: AppUser[]) => void): Unsubscribe {
+    listenForUsers(onUsersChange: (users: AppUser[]) => void, maxUsers: number = 50): Unsubscribe {
         if (this.usersUnsubscribe) {
             this.usersUnsubscribe();
         }
 
         const usersRef = collection(db, 'users');
-        const q = query(usersRef, orderBy('lastSeen', 'desc'));
+        const q = query(usersRef, orderBy('lastSeen', 'desc'), limit(maxUsers));
 
         this.usersUnsubscribe = onSnapshot(q, (snapshot) => {
             const users = snapshot.docs.map(doc => doc.data() as AppUser);

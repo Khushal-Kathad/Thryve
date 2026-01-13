@@ -14,7 +14,7 @@ import SidebarOption from './SidebarOption';
 import CreateChannelModal from './ui/CreateChannelModal';
 import ChannelPasswordModal from './ui/ChannelPasswordModal';
 import { db } from '../firebase';
-import { collection, doc, setDoc, getDoc, Timestamp } from 'firebase/firestore';
+import { collection, doc, setDoc, getDoc, Timestamp, query, orderBy, limit } from 'firebase/firestore';
 import { useCollection } from 'react-firebase-hooks/firestore';
 import { getAuth } from 'firebase/auth';
 import { useAuthState } from 'react-firebase-hooks/auth';
@@ -41,7 +41,9 @@ const Sidebar: React.FC = () => {
     const dispatch = useDispatch();
     const { showToast } = useToast();
 
-    const [channels] = useCollection(collection(db, 'rooms'));
+    // Limit channels query to 50 for faster initial load
+    const channelsQuery = query(collection(db, 'rooms'), orderBy('createdAt', 'desc'), limit(50));
+    const [channels] = useCollection(channelsQuery);
 
     const showCreateModal = useSelector(selectShowCreateChannelModal);
     const pendingRoomId = useSelector(selectPendingRoomId);
