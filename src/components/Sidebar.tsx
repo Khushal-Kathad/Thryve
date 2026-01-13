@@ -110,11 +110,15 @@ const Sidebar: React.FC = () => {
                 passwordHash: string | null;
                 createdAt: ReturnType<typeof Timestamp.fromDate>;
                 createdBy: string;
+                members: string[];
+                memberNames: Record<string, string>;
             } = {
                 name,
                 passwordHash: password ? await hashPassword(password) : null,
                 createdAt: Timestamp.fromDate(new Date()),
                 createdBy: user.uid,
+                members: [user.uid],
+                memberNames: { [user.uid]: user.displayName || 'Unknown' },
             };
 
             await setDoc(newRef, channelData);
