@@ -1,19 +1,246 @@
 * {
   margin: 0;
-
+  padding: 0;
+  box-sizing: border-box;
 }
+
+:root {
+  /* Dark Theme Colors - Discord Inspired */
+  --bg-primary: #1a1a2e;
+  --bg-secondary: #16213e;
+  --bg-tertiary: #0f3460;
+  --bg-chat: #0d1117;
+
+  /* Accent Colors */
+  --accent-primary: #5865f2;
+  --accent-secondary: #7289da;
+  --accent-danger: #e94560;
+  --accent-success: #3ba55c;
+  --accent-warning: #faa61a;
+
+  /* Text Colors */
+  --text-primary: #ffffff;
+  --text-secondary: #b9bbbe;
+  --text-muted: #72767d;
+  --text-link: #00aff4;
+
+  /* Glassmorphism - Subtle, no blur */
+  --glass-bg: rgba(30, 35, 60, 0.8);
+  --glass-bg-hover: rgba(40, 45, 75, 0.9);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-border-hover: rgba(255, 255, 255, 0.15);
+  --glass-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+
+  /* Gradients */
+  --gradient-primary: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  --gradient-accent: linear-gradient(135deg, #5865f2 0%, #e94560 100%);
+  --gradient-glow: radial-gradient(circle at 50% 50%, rgba(88, 101, 242, 0.15) 0%, transparent 70%);
+  --gradient-sidebar: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
+
+  /* Spacing */
+  --spacing-xs: 0.25rem;
+  --spacing-sm: 0.5rem;
+  --spacing-md: 1rem;
+  --spacing-lg: 1.5rem;
+  --spacing-xl: 2rem;
+
+  /* Border Radius */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-normal: 250ms ease;
+  --transition-slow: 350ms ease;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.5);
+  --shadow-glow: 0 0 20px rgba(88, 101, 242, 0.4);
+  --shadow-glow-accent: 0 0 30px rgba(233, 69, 96, 0.3);
+
+  /* Header Height */
+  --header-height: 60px;
+
+  /* Sidebar Width */
+  --sidebar-width: 280px;
+}
+
 body {
-  --slack-color:#3f0f40;
   overflow: hidden;
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background: var(--gradient-primary);
+  color: var(--text-primary);
+  min-height: 100vh;
 }
 
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-primary);
+}
+
+/* Selection */
+::selection {
+  background: var(--accent-primary);
+  color: var(--text-primary);
+}
+
+/* Focus Outline */
+:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+/* Links */
+a {
+  color: var(--text-link);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+a:hover {
+  color: var(--accent-primary);
+}
+
+/* Buttons Base Reset */
+button {
+  cursor: pointer;
+  border: none;
+  background: none;
+  font-family: inherit;
+}
+
+/* Input Base Reset */
+input, textarea {
+  font-family: inherit;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+}
+
+input::placeholder, textarea::placeholder {
+  color: var(--text-muted);
+}
+
+/* Code */
 code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+  font-family: 'Fira Code', source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+  background: var(--glass-bg);
+  padding: 0.2em 0.4em;
+  border-radius: var(--radius-sm);
+  font-size: 0.9em;
+}
+
+/* Utility Classes */
+.glass {
+  background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+}
+
+.glow {
+  box-shadow: var(--shadow-glow);
+}
+
+.text-gradient {
+  background: var(--gradient-accent);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Animation Keyframes */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes glow {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(88, 101, 242, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(88, 101, 242, 0.8);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes typing {
+  0%, 60%, 100% {
+    transform: translateY(0);
+  }
+  30% {
+    transform: translateY(-5px);
+  }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  :root {
+    --sidebar-width: 100%;
+    --header-height: 56px;
+  }
 }
