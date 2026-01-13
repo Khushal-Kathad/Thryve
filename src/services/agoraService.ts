@@ -85,10 +85,6 @@ class AgoraService {
             throw new Error('Failed to initialize Agora client');
         }
 
-        if (!APP_ID) {
-            throw new Error('Agora App ID not configured');
-        }
-
         // Prevent double joining
         if (this.isJoining) {
             console.log('Already joining a channel, please wait...');
@@ -108,8 +104,10 @@ class AgoraService {
 
         this.isJoining = true;
         try {
-            // Fetch token from Cloudflare Worker
+            // Fetch token and appId from Cloudflare Worker
             let token = null;
+            let appId = APP_ID; // Fallback to env variable
+
             if (TOKEN_WORKER_URL) {
                 try {
                     const response = await fetch(
@@ -118,6 +116,10 @@ class AgoraService {
                     if (response.ok) {
                         const data = await response.json();
                         token = data.token;
+                        // Use appId from worker response (more reliable than env var)
+                        if (data.appId) {
+                            appId = data.appId;
+                        }
                         console.log('Token fetched for channel:', channelName);
                     } else {
                         console.warn('Failed to fetch token:', await response.text());
@@ -127,7 +129,11 @@ class AgoraService {
                 }
             }
 
-            await this.client.join(APP_ID, channelName, token, uid);
+            if (!appId) {
+                throw new Error('Agora App ID not configured');
+            }
+
+            await this.client.join(appId, channelName, token, uid);
             console.log('Joined channel:', channelName);
         } finally {
             this.isJoining = false;
