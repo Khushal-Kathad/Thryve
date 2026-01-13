@@ -2,66 +2,51 @@
   "name": "chat-app",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "dependencies": {
+    "@emoji-mart/data": "^1.2.1",
+    "@emoji-mart/react": "^1.1.1",
     "@emotion/react": "^11.11.4",
     "@emotion/styled": "^11.11.0",
     "@mui/icons-material": "^5.15.14",
     "@mui/material": "^5.15.14",
     "@reduxjs/toolkit": "^1.9.7",
-    "@testing-library/jest-dom": "^5.17.0",
-    "@testing-library/react": "^13.4.0",
-    "@testing-library/user-event": "^14.5.2",
+    "agora-rtc-sdk-ng": "^4.24.2",
+    "bcryptjs": "^3.0.3",
+    "date-fns": "^4.1.0",
     "firebase": "^10.9.0",
+    "framer-motion": "^12.26.1",
     "localforage": "^1.10.0",
     "match-sorter": "^6.3.4",
-    "node": "^18.20.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-firebase-hooks": "^5.1.1",
     "react-redux": "^8.1.3",
     "react-router-dom": "^6.22.3",
-    "react-scripts": "5.0.1",
     "react-spinkit": "^3.0.0",
     "sort-by": "^1.2.0",
     "styled-components": "^6.1.8",
     "web-vitals": "^2.1.4"
   },
-  "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject"
-  },
-  "eslintConfig": {
-    "extends": [
-      "react-app",
-      "react-app/jest"
-    ]
-  },
-  "browserslist": {
-    "production": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all"
-    ],
-    "development": [
-      "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
-    ]
-  },
-  "resolutions": {
-    "styled-components": "^5"
-  },
   "devDependencies": {
-    "gh-pages": "^6.1.1"
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^20.19.28",
+    "@types/react": "^18.3.27",
+    "@types/react-dom": "^18.3.7",
+    "@vitejs/plugin-react-swc": "^3.11.0",
+    "gh-pages": "^6.1.1",
+    "typescript": "^5.9.3",
+    "vite": "^5.4.21"
   },
-  "description": "This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app), using the [Redux](https://redux.js.org/) and [Redux Toolkit](https://redux-toolkit.js.org/) template.",
-  "main": "index.js",
-  "repository": {
-    "type": "git",
-    "url": "AWTProject217_241"
+  "scripts": {
+    "dev": "vite",
+    "start": "vite",
+    "build": "vite build",
+    "build:check": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
   },
+  "description": "A modern chat application built with React, TypeScript, and Vite.",
   "author": "Monil",
   "license": "ISC"
 }
