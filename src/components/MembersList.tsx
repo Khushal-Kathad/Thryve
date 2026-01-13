@@ -5,8 +5,9 @@ import CallIcon from '@mui/icons-material/Call';
 import VideocamIcon from '@mui/icons-material/Videocam';
 import PersonIcon from '@mui/icons-material/Person';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
+import PersonRemoveIcon from '@mui/icons-material/PersonRemove';
 import type { DocumentData, QuerySnapshot } from 'firebase/firestore';
-import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion, arrayRemove, deleteField } from 'firebase/firestore';
 import { db } from '../firebase';
 import { userService, AppUser } from '../services/userService';
 import { useToast } from '../context/ToastContext';
@@ -96,6 +97,38 @@ const MembersList = ({
         } catch (error) {
             console.error('Error adding member to channel:', roomId, error);
             showToast('Failed to add member', 'error');
+        } finally {
+            setIsUpdating(false);
+        }
+    };
+
+    // Remove member from this specific channel
+    const handleRemoveMember = async (userId: string, userName: string) => {
+        if (!roomId || roomId === 'null' || isUpdating) {
+            console.error('Invalid roomId:', roomId);
+            return;
+        }
+
+        // Can't remove yourself or the creator
+        if (userId === currentUserId || userId === channelCreatorId) {
+            showToast('Cannot remove the channel creator', 'error');
+            return;
+        }
+
+        setIsUpdating(true);
+        try {
+            const roomRef = doc(db, 'rooms', roomId);
+            console.log(`Removing member ${userName} (${userId}) from channel ${roomId}`);
+
+            await updateDoc(roomRef, {
+                members: arrayRemove(userId),
+                [`memberNames.${userId}`]: deleteField(),
+            });
+
+            showToast(`Removed ${userName} from #${channelName}`, 'success');
+        } catch (error) {
+            console.error('Error removing member from channel:', roomId, error);
+            showToast('Failed to remove member', 'error');
         } finally {
             setIsUpdating(false);
         }
@@ -241,7 +274,7 @@ const MembersList = ({
                                 </MemberStatus>
                             </MemberInfoContainer>
                             {!isCurrentUser && (
-                                <CallActions>
+                                <MemberActions>
                                     <CallButton
                                         title="Voice Call"
                                         onClick={() =>
@@ -270,7 +303,16 @@ const MembersList = ({
                                     >
                                         <VideocamIcon />
                                     </CallButton>
-                                </CallActions>
+                                    {isCreator && !isMemberCreator && (
+                                        <RemoveButton
+                                            title="Remove from channel"
+                                            onClick={() => handleRemoveMember(member.odUserId, member.name)}
+                                            disabled={isUpdating}
+                                        >
+                                            <PersonRemoveIcon />
+                                        </RemoveButton>
+                                    )}
+                                </MemberActions>
                             )}
                         </MemberItem>
                     );
@@ -279,7 +321,7 @@ const MembersList = ({
 
             <Footer>
                 <FooterText>
-                    {isCreator ? 'You can add members to this channel' : 'Click on a member to start a direct call'}
+                    {isCreator ? 'You can add or remove members from this channel' : 'Click on a member to start a direct call'}
                 </FooterText>
             </Footer>
         </Container>
@@ -530,7 +572,7 @@ const MemberStatus = styled.div`
     color: var(--text-muted);
 `;
 
-const CallActions = styled.div`
+const MemberActions = styled.div`
     display: flex;
     gap: 4px;
     opacity: 0;
@@ -559,6 +601,27 @@ const CallButton = styled.button<{ disabled?: boolean }>`
     &:hover:not(:disabled) {
         background: rgba(59, 165, 92, 0.1);
         color: var(--accent-success);
+    }
+`;
+
+const RemoveButton = styled.button<{ disabled?: boolean }>`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px;
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    transition: all var(--transition-fast);
+    cursor: ${(props) => (props.disabled ? 'not-allowed' : 'pointer')};
+    opacity: ${(props) => (props.disabled ? 0.5 : 1)};
+
+    svg {
+        font-size: 1.1rem;
+    }
+
+    &:hover:not(:disabled) {
+        background: rgba(233, 69, 96, 0.1);
+        color: var(--accent-danger);
     }
 `;
 
