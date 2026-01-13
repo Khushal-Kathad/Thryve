@@ -54,14 +54,18 @@ class CallService {
             callType,
             isGroupCall,
             status: isGroupCall ? 'active' : 'ringing', // Group calls start as active
-            participants: isGroupCall ? [{
+            createdAt: Date.now(),
+        };
+
+        // Only add participants field for group calls (Firestore rejects undefined values)
+        if (isGroupCall) {
+            call.participants = [{
                 odUserId: callerId,
                 odUserName: callerName,
                 photo: callerPhoto,
                 joinedAt: Date.now(),
-            }] : undefined,
-            createdAt: Date.now(),
-        };
+            }];
+        }
 
         await setDoc(callRef, call);
         console.log('Call created:', call.id, isGroupCall ? '(group)' : '(1-to-1)');
@@ -146,28 +150,32 @@ class CallService {
     // Leave a group call
     async leaveGroupCall(
         callId: string,
-        odUserId: string,
-        odUserName: string,
-        photo: string,
-        joinedAt: number
+        odUserId: string
     ): Promise<void> {
         const callRef = doc(db, 'calls', callId);
-        const participant: CallParticipant = {
-            odUserId,
-            odUserName,
-            photo,
-            joinedAt,
-        };
-        await updateDoc(callRef, {
-            participants: arrayRemove(participant),
-        });
-        console.log('User left group call:', odUserId);
+
+        // Get the call to find the participant's exact data
+        const callDoc = await getDoc(callRef);
+        if (!callDoc.exists()) {
+            console.log('Call not found:', callId);
+            return;
+        }
+
+        const call = callDoc.data() as Call;
+        const participant = call.participants?.find(p => p.odUserId === odUserId);
+
+        if (participant) {
+            await updateDoc(callRef, {
+                participants: arrayRemove(participant),
+            });
+            console.log('User left group call:', odUserId);
+        }
 
         // Check if call should end (no participants left)
-        const callDoc = await getDoc(callRef);
-        if (callDoc.exists()) {
-            const call = callDoc.data() as Call;
-            if (!call.participants || call.participants.length === 0) {
+        const updatedCallDoc = await getDoc(callRef);
+        if (updatedCallDoc.exists()) {
+            const updatedCall = updatedCallDoc.data() as Call;
+            if (!updatedCall.participants || updatedCall.participants.length === 0) {
                 await this.endCall(callId);
             }
         }

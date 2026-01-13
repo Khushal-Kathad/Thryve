@@ -35,7 +35,6 @@ const VideoCall = ({ userId }: VideoCallProps) => {
     const [callDuration, setCallDuration] = useState(0);
     const [isConnecting, setIsConnecting] = useState(true);
     const [remoteUsersList, setRemoteUsersList] = useState<IAgoraRTCRemoteUser[]>([]);
-    const [participantJoinedAt, setParticipantJoinedAt] = useState<number>(Date.now());
 
     // Initialize call
     useEffect(() => {
@@ -44,7 +43,6 @@ const VideoCall = ({ userId }: VideoCallProps) => {
         const initializeCall = async () => {
             try {
                 setIsConnecting(true);
-                setParticipantJoinedAt(Date.now());
 
                 // Initialize Agora with event handlers
                 await agoraService.initialize({
@@ -138,23 +136,21 @@ const VideoCall = ({ userId }: VideoCallProps) => {
 
     const handleEndCall = useCallback(async () => {
         if (currentCall) {
-            if (currentCall.isGroupCall) {
-                // For group calls, leave the call (don't end for everyone)
-                await callService.leaveGroupCall(
-                    currentCall.id,
-                    userId,
-                    currentCall.callerId === userId ? currentCall.callerName : 'Unknown',
-                    currentCall.callerId === userId ? currentCall.callerPhoto : '',
-                    participantJoinedAt
-                );
-            } else {
-                // For 1-to-1 calls, end the call
-                await callService.endCall(currentCall.id);
+            try {
+                if (currentCall.isGroupCall) {
+                    // For group calls, leave the call (don't end for everyone)
+                    await callService.leaveGroupCall(currentCall.id, userId);
+                } else {
+                    // For 1-to-1 calls, end the call
+                    await callService.endCall(currentCall.id);
+                }
+            } catch (error) {
+                console.error('Error ending call in Firestore:', error);
             }
         }
         await agoraService.leaveChannel();
         dispatch(endCall());
-    }, [currentCall, userId, participantJoinedAt, dispatch]);
+    }, [currentCall, userId, dispatch]);
 
     const handleToggleMute = () => {
         dispatch(toggleMute());
