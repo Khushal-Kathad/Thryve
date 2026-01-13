@@ -1,9 +1,0 @@
-/* App.css - Minimal styles, most styling done via styled-components */
-
-/* Import Google Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-
-/* Ensure smooth scrolling globally */
-html {
-    scroll-behavior: smooth;
-}
