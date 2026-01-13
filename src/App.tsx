@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, lazy, Suspense } from 'react';
 import './App.css';
 import Header from './components/Header';
 import styled, { keyframes } from 'styled-components';
@@ -24,10 +24,18 @@ import {
     selectIsInCall,
     endCall,
 } from './features/callSlice';
-import VideoCall from './components/VideoCall';
 import IncomingCallModal from './components/ui/IncomingCallModal';
 import NewMessageModal from './components/ui/NewMessageModal';
-import { ThreadsPanel, MentionsPanel, SavedPanel, PeoplePanel, SettingsPanel } from './components/panels';
+
+// Lazy load heavy components (VideoCall has ~4MB Agora SDK)
+const VideoCall = lazy(() => import('./components/VideoCall'));
+
+// Lazy load panels (only one renders at a time)
+const ThreadsPanel = lazy(() => import('./components/panels/ThreadsPanel'));
+const MentionsPanel = lazy(() => import('./components/panels/MentionsPanel'));
+const SavedPanel = lazy(() => import('./components/panels/SavedPanel'));
+const PeoplePanel = lazy(() => import('./components/panels/PeoplePanel'));
+const SettingsPanel = lazy(() => import('./components/panels/SettingsPanel'));
 
 const auth = getAuth();
 
@@ -50,15 +58,15 @@ const AppContent: React.FC = () => {
     const renderMainContent = () => {
         switch (activePanel) {
             case 'threads':
-                return <ThreadsPanel />;
+                return <Suspense fallback={<PanelLoader />}><ThreadsPanel /></Suspense>;
             case 'mentions':
-                return <MentionsPanel />;
+                return <Suspense fallback={<PanelLoader />}><MentionsPanel /></Suspense>;
             case 'saved':
-                return <SavedPanel />;
+                return <Suspense fallback={<PanelLoader />}><SavedPanel /></Suspense>;
             case 'people':
-                return <PeoplePanel />;
+                return <Suspense fallback={<PanelLoader />}><PeoplePanel /></Suspense>;
             case 'settings':
-                return <SettingsPanel />;
+                return <Suspense fallback={<PanelLoader />}><SettingsPanel /></Suspense>;
             default:
                 return <Chat />;
         }
@@ -188,8 +196,12 @@ const AppContent: React.FC = () => {
                     {/* New Message Modal */}
                     <NewMessageModal isOpen={showNewMessageModal} />
 
-                    {/* Video/Audio Call UI */}
-                    {isInCall && user && <VideoCall userId={user.uid} />}
+                    {/* Video/Audio Call UI - Lazy loaded */}
+                    {isInCall && user && (
+                        <Suspense fallback={<CallLoader>Connecting call...</CallLoader>}>
+                            <VideoCall userId={user.uid} />
+                        </Suspense>
+                    )}
 
                     {/* Incoming Call Modal */}
                     {incomingCall && (
@@ -310,4 +322,29 @@ const LoadingSpinner = styled.div`
 const LoadingText = styled.p`
     color: var(--text-muted);
     font-size: 0.9rem;
+`;
+
+// Lazy loading fallbacks
+const PanelLoader = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+`;
+
+const CallLoader = styled.div`
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.8);
+    color: var(--text-primary);
+    font-size: 1.1rem;
+    z-index: 9999;
 `;
