@@ -1,5 +1,5 @@
 import React, { useState, memo, useCallback } from 'react';
-import styled, { keyframes } from 'styled-components';
+import styled, { keyframes, css } from 'styled-components';
 import { Avatar } from '@mui/material';
 import AddReactionOutlinedIcon from '@mui/icons-material/AddReactionOutlined';
 import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
@@ -8,6 +8,7 @@ import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import ReplyIcon from '@mui/icons-material/Reply';
 import { format } from 'date-fns';
 import { db } from '../firebase';
 import { doc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
@@ -108,6 +109,16 @@ const Message: React.FC<MessageProps> = ({
         return reactions[emoji].includes(userId);
     }, [reactions, userId]);
 
+    // Get initials for avatar placeholder
+    const getInitials = (name: string) => {
+        return name
+            .split(' ')
+            .map(n => n[0])
+            .join('')
+            .toUpperCase()
+            .slice(0, 2);
+    };
+
     return (
         <MessageContainer
             onMouseEnter={() => setShowActions(true)}
@@ -118,13 +129,19 @@ const Message: React.FC<MessageProps> = ({
             $isPending={isPending}
         >
             <AvatarWrapper>
-                <StyledAvatar src={userImage} alt={users} $isPending={isPending} />
+                {userImage ? (
+                    <StyledAvatar src={userImage} alt={users} $isPending={isPending} />
+                ) : (
+                    <AvatarPlaceholder $isPending={isPending}>
+                        {getInitials(users)}
+                    </AvatarPlaceholder>
+                )}
             </AvatarWrapper>
 
             <MessageContent>
                 <MessageHeader>
                     <UserName>{users}</UserName>
-                    <TimestampStyled title={formatFullDate(timestamp)}>
+                    <TimestampWrapper title={formatFullDate(timestamp)}>
                         {isPending ? (
                             <PendingIndicator $status={pendingStatus}>
                                 {pendingStatus === 'pending' && <ScheduleIcon />}
@@ -137,23 +154,30 @@ const Message: React.FC<MessageProps> = ({
                                 </span>
                             </PendingIndicator>
                         ) : (
-                            formatTime(timestamp)
+                            <TimeStamp>{formatTime(timestamp)}</TimeStamp>
                         )}
-                    </TimestampStyled>
+                    </TimestampWrapper>
+                    {isSaved && (
+                        <SavedBadge>
+                            <BookmarkIcon />
+                        </SavedBadge>
+                    )}
                 </MessageHeader>
 
-                <MessageText>{message}</MessageText>
+                <MessageBubble $isPending={isPending}>
+                    <MessageText>{message}</MessageText>
 
-                {imageUrl && (
-                    <MessageImage>
-                        <img
-                            src={imageUrl}
-                            alt="Shared content"
-                            loading="lazy"
-                            decoding="async"
-                        />
-                    </MessageImage>
-                )}
+                    {imageUrl && (
+                        <MessageImage>
+                            <img
+                                src={imageUrl}
+                                alt="Shared content"
+                                loading="lazy"
+                                decoding="async"
+                            />
+                        </MessageImage>
+                    )}
+                </MessageBubble>
 
                 {reactions && Object.keys(reactions).length > 0 && (
                     <ReactionsDisplay>
@@ -165,11 +189,14 @@ const Message: React.FC<MessageProps> = ({
                                     onClick={() => handleReaction(emoji)}
                                     $isActive={hasUserReacted(emoji)}
                                 >
-                                    <span>{emoji}</span>
-                                    <span>{userIds.length}</span>
+                                    <span className="emoji">{emoji}</span>
+                                    <span className="count">{userIds.length}</span>
                                 </ReactionBadge>
                             );
                         })}
+                        <AddReactionButton onClick={() => setShowReactions(!showReactions)}>
+                            <AddReactionOutlinedIcon />
+                        </AddReactionButton>
                     </ReactionsDisplay>
                 )}
             </MessageContent>
@@ -181,6 +208,9 @@ const Message: React.FC<MessageProps> = ({
                         title="Add reaction"
                     >
                         <AddReactionOutlinedIcon />
+                    </ActionButton>
+                    <ActionButton title="Reply">
+                        <ReplyIcon />
                     </ActionButton>
                     <ActionButton
                         onClick={handleToggleSave}
@@ -199,6 +229,7 @@ const Message: React.FC<MessageProps> = ({
                                 <ReactionOption
                                     key={emoji}
                                     onClick={() => handleReaction(emoji)}
+                                    $isActive={hasUserReacted(emoji)}
                                 >
                                     {emoji}
                                 </ReactionOption>
@@ -236,19 +267,33 @@ const scaleIn = keyframes`
     }
 `;
 
+const pulse = keyframes`
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+`;
+
 // Styled Components
 const MessageContainer = styled.div<{ $isPending?: boolean }>`
     display: flex;
     gap: var(--spacing-md);
     padding: var(--spacing-sm) var(--spacing-md);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-lg);
     position: relative;
     animation: ${fadeIn} 0.3s ease-out;
     transition: background var(--transition-fast);
     opacity: ${(props) => (props.$isPending ? 0.7 : 1)};
 
     &:hover {
-        background: var(--glass-bg);
+        background: var(--bg-tertiary);
+    }
+
+    @media (max-width: 480px) {
+        padding: var(--spacing-sm);
+        gap: var(--spacing-sm);
     }
 `;
 
@@ -259,24 +304,34 @@ const AvatarWrapper = styled.div`
 const StyledAvatar = styled(Avatar)<{ $isPending?: boolean }>`
     width: 40px !important;
     height: 40px !important;
-    border: 2px solid ${(props) => (props.$isPending ? 'var(--text-muted)' : 'var(--glass-border)')};
+    border: 2px solid var(--bg-primary);
+    box-shadow: var(--shadow-sm);
     filter: ${(props) => (props.$isPending ? 'grayscale(50%)' : 'none')};
+
+    @media (max-width: 480px) {
+        width: 36px !important;
+        height: 36px !important;
+    }
 `;
 
-const PendingIndicator = styled.div<{ $status?: string }>`
-    display: inline-flex;
+const AvatarPlaceholder = styled.div<{ $isPending?: boolean }>`
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-full);
+    background: var(--gradient-primary);
+    display: flex;
     align-items: center;
-    gap: 4px;
-    color: ${(props) => {
-        if (props.$status === 'failed') return 'var(--accent-danger)';
-        return 'var(--text-muted)';
-    }};
+    justify-content: center;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: white;
+    border: 2px solid var(--bg-primary);
+    box-shadow: var(--shadow-sm);
+    filter: ${(props) => (props.$isPending ? 'grayscale(50%)' : 'none')};
 
-    svg {
-        font-size: 0.9rem;
-    }
-
-    span {
+    @media (max-width: 480px) {
+        width: 36px;
+        height: 36px;
         font-size: 0.75rem;
     }
 `;
@@ -284,27 +339,39 @@ const PendingIndicator = styled.div<{ $status?: string }>`
 const MessageContent = styled.div`
     flex: 1;
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
 `;
 
 const MessageHeader = styled.div`
     display: flex;
-    align-items: baseline;
+    align-items: center;
     gap: var(--spacing-sm);
-    margin-bottom: var(--spacing-xs);
 `;
 
 const UserName = styled.span`
     font-weight: 600;
     color: var(--text-primary);
     font-size: 0.95rem;
+    cursor: pointer;
+    transition: color var(--transition-fast);
 
     &:hover {
-        text-decoration: underline;
-        cursor: pointer;
+        color: var(--accent-primary);
+    }
+
+    @media (max-width: 480px) {
+        font-size: 0.9rem;
     }
 `;
 
-const TimestampStyled = styled.span`
+const TimestampWrapper = styled.div`
+    display: flex;
+    align-items: center;
+`;
+
+const TimeStamp = styled.span`
     font-size: 0.75rem;
     color: var(--text-muted);
     cursor: default;
@@ -314,20 +381,67 @@ const TimestampStyled = styled.span`
     }
 `;
 
+const SavedBadge = styled.span`
+    display: flex;
+    align-items: center;
+    color: var(--accent-warning);
+
+    svg {
+        font-size: 0.9rem;
+    }
+`;
+
+const PendingIndicator = styled.div<{ $status?: string }>`
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    background: ${(props) => {
+        if (props.$status === 'failed') return 'rgba(239, 68, 68, 0.1)';
+        return 'var(--purple-50)';
+    }};
+    color: ${(props) => {
+        if (props.$status === 'failed') return 'var(--accent-danger)';
+        return 'var(--accent-primary)';
+    }};
+    animation: ${pulse} 2s ease-in-out infinite;
+
+    svg {
+        font-size: 0.85rem;
+    }
+
+    span {
+        font-size: 0.7rem;
+        font-weight: 500;
+    }
+`;
+
+const MessageBubble = styled.div<{ $isPending?: boolean }>`
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    max-width: 100%;
+`;
+
 const MessageText = styled.p`
-    color: var(--text-secondary);
+    color: var(--text-primary);
     font-size: 0.95rem;
-    line-height: 1.5;
+    line-height: 1.6;
     word-wrap: break-word;
     white-space: pre-wrap;
+
+    @media (max-width: 480px) {
+        font-size: 0.9rem;
+    }
 `;
 
 const MessageImage = styled.div`
-    margin-top: var(--spacing-sm);
     max-width: 400px;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-lg);
     overflow: hidden;
-    border: 1px solid var(--glass-border);
+    border: 1px solid var(--border-light);
+    box-shadow: var(--shadow-sm);
 
     img {
         width: 100%;
@@ -340,55 +454,89 @@ const MessageImage = styled.div`
             transform: scale(1.02);
         }
     }
+
+    @media (max-width: 480px) {
+        max-width: 280px;
+    }
 `;
 
 const ReactionsDisplay = styled.div`
     display: flex;
     flex-wrap: wrap;
     gap: var(--spacing-xs);
-    margin-top: var(--spacing-sm);
+    margin-top: var(--spacing-xs);
 `;
 
 const ReactionBadge = styled.button<{ $isActive?: boolean }>`
     display: flex;
     align-items: center;
     gap: 4px;
-    padding: 4px 8px;
-    background: ${props => props.$isActive ? 'var(--accent-primary)' : 'var(--glass-bg)'};
-    border: 1px solid ${props => props.$isActive ? 'var(--accent-primary)' : 'var(--glass-border)'};
+    padding: 4px 10px;
+    background: ${props => props.$isActive ? 'var(--purple-100)' : 'var(--bg-tertiary)'};
+    border: 1px solid ${props => props.$isActive ? 'var(--accent-primary)' : 'var(--border-light)'};
     border-radius: var(--radius-full);
     font-size: 0.85rem;
-    color: var(--text-primary);
     transition: all var(--transition-fast);
     cursor: pointer;
 
-    span:first-child {
+    .emoji {
         font-size: 1rem;
     }
 
-    span:last-child {
+    .count {
         font-size: 0.75rem;
-        color: ${props => props.$isActive ? 'white' : 'var(--text-muted)'};
+        font-weight: 600;
+        color: ${props => props.$isActive ? 'var(--accent-primary)' : 'var(--text-secondary)'};
     }
 
     &:hover {
-        background: ${props => props.$isActive ? 'var(--accent-primary)' : 'var(--glass-bg-hover)'};
+        background: ${props => props.$isActive ? 'var(--purple-200)' : 'var(--bg-tertiary)'};
         transform: scale(1.05);
+        border-color: var(--accent-primary);
+    }
+`;
+
+const AddReactionButton = styled.button`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-full);
+    background: var(--bg-tertiary);
+    border: 1px dashed var(--border-medium);
+    color: var(--text-muted);
+    transition: all var(--transition-fast);
+
+    svg {
+        font-size: 0.9rem;
+    }
+
+    &:hover {
+        background: var(--purple-50);
+        border-color: var(--accent-primary);
+        border-style: solid;
+        color: var(--accent-primary);
     }
 `;
 
 const MessageActions = styled.div`
     position: absolute;
-    top: -8px;
+    top: 0;
     right: var(--spacing-md);
     display: flex;
     gap: 2px;
-    background: var(--bg-secondary);
-    border: 1px solid var(--glass-border);
-    border-radius: var(--radius-md);
-    padding: 2px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-lg);
+    padding: 4px;
     animation: ${scaleIn} 0.15s ease-out;
-    box-shadow: var(--shadow-md);
+    box-shadow: var(--shadow-lg);
+    z-index: 5;
+
+    @media (max-width: 480px) {
+        right: var(--spacing-sm);
+    }
 `;
 
 const ActionButton = styled.button<{ $isActive?: boolean }>`
@@ -397,7 +545,7 @@ const ActionButton = styled.button<{ $isActive?: boolean }>`
     justify-content: center;
     width: 32px;
     height: 32px;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-md);
     color: ${(props) => (props.$isActive ? 'var(--accent-primary)' : 'var(--text-muted)')};
     transition: all var(--transition-fast);
 
@@ -406,39 +554,39 @@ const ActionButton = styled.button<{ $isActive?: boolean }>`
     }
 
     &:hover {
-        background: var(--glass-bg-hover);
-        color: ${(props) => (props.$isActive ? 'var(--accent-primary)' : 'var(--text-primary)')};
+        background: var(--purple-50);
+        color: var(--accent-primary);
     }
 `;
 
 const ReactionPicker = styled.div`
     position: absolute;
-    top: 100%;
+    top: calc(100% + 4px);
     right: 0;
-    margin-top: var(--spacing-xs);
     display: flex;
     gap: 2px;
-    background: var(--bg-secondary);
-    border: 1px solid var(--glass-border);
-    border-radius: var(--radius-md);
-    padding: var(--spacing-xs);
+    background: var(--bg-primary);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-lg);
+    padding: 6px;
     animation: ${scaleIn} 0.15s ease-out;
-    box-shadow: var(--shadow-lg);
+    box-shadow: var(--shadow-xl);
     z-index: 10;
 `;
 
-const ReactionOption = styled.button`
+const ReactionOption = styled.button<{ $isActive?: boolean }>`
     display: flex;
     align-items: center;
     justify-content: center;
     width: 36px;
     height: 36px;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-md);
     font-size: 1.3rem;
     transition: all var(--transition-fast);
+    background: ${props => props.$isActive ? 'var(--purple-100)' : 'transparent'};
 
     &:hover {
-        background: var(--glass-bg-hover);
+        background: var(--purple-50);
         transform: scale(1.2);
     }
 `;
