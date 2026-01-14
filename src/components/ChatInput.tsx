@@ -5,6 +5,8 @@ import EmojiEmotionsOutlinedIcon from '@mui/icons-material/EmojiEmotionsOutlined
 import ImageOutlinedIcon from '@mui/icons-material/ImageOutlined';
 import CloseIcon from '@mui/icons-material/Close';
 import CloudOffIcon from '@mui/icons-material/CloudOff';
+import AttachFileIcon from '@mui/icons-material/AttachFile';
+import MicNoneIcon from '@mui/icons-material/MicNone';
 import { db } from '../firebase';
 import { collection, doc, setDoc, Timestamp } from 'firebase/firestore';
 import { useAuthState } from 'react-firebase-hooks/auth';
@@ -41,7 +43,9 @@ const ChatInput: React.FC<ChatInputProps> = ({ channelName, channelId, chatRef, 
     const [imagePreview, setImagePreview] = useState<string | null>(null);
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [uploading, setUploading] = useState(false);
+    const [isFocused, setIsFocused] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
 
     // Handle typing indicator
     const handleTyping = useCallback(() => {
@@ -88,6 +92,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ channelName, channelId, chatRef, 
     const addEmoji = (emoji: string) => {
         setInput((prev) => prev + emoji);
         setShowEmoji(false);
+        inputRef.current?.focus();
     };
 
     const updatePendingCount = async () => {
@@ -198,15 +203,27 @@ const ChatInput: React.FC<ChatInputProps> = ({ channelName, channelId, chatRef, 
         }
     };
 
+    const hasContent = !!(input.trim() || imageFile);
+
     return (
         <InputWrapper>
-            <InputContainer $isOffline={!isOnline}>
+            {!isOnline && (
+                <OfflineBanner>
+                    <CloudOffIcon />
+                    <span>You're offline. Messages will be sent when you reconnect.</span>
+                </OfflineBanner>
+            )}
+
+            <InputContainer $isOffline={!isOnline} $isFocused={isFocused}>
                 {imagePreview && (
                     <ImagePreviewContainer>
-                        <PreviewImage src={imagePreview} alt="Preview" />
-                        <RemoveButton onClick={removeImage}>
-                            <CloseIcon />
-                        </RemoveButton>
+                        <PreviewWrapper>
+                            <PreviewImage src={imagePreview} alt="Preview" />
+                            <RemoveButton onClick={removeImage} title="Remove image">
+                                <CloseIcon />
+                            </RemoveButton>
+                        </PreviewWrapper>
+                        <PreviewFileName>{imageFile?.name}</PreviewFileName>
                     </ImagePreviewContainer>
                 )}
 
@@ -229,19 +246,25 @@ const ChatInput: React.FC<ChatInputProps> = ({ channelName, channelId, chatRef, 
                         </ActionButton>
                     </ActionButtons>
 
-                    <StyledInput
-                        value={input}
-                        onChange={handleInputChange}
-                        onKeyDown={handleKeyDown}
-                        placeholder={`Message #${channelName || 'channel'}`}
-                        disabled={uploading}
-                    />
+                    <InputField>
+                        <StyledInput
+                            ref={inputRef}
+                            value={input}
+                            onChange={handleInputChange}
+                            onKeyDown={handleKeyDown}
+                            onFocus={() => setIsFocused(true)}
+                            onBlur={() => setIsFocused(false)}
+                            placeholder={`Message #${channelName || 'channel'}`}
+                            disabled={uploading}
+                        />
+                    </InputField>
 
                     <SendButton
                         type="submit"
                         onClick={sendMessage}
-                        disabled={(!input.trim() && !imageFile) || uploading}
-                        $hasContent={!!(input.trim() || imageFile)}
+                        disabled={!hasContent || uploading}
+                        $hasContent={hasContent}
+                        title="Send message"
                     >
                         {uploading ? <LoadingSpinner /> : <SendIcon />}
                     </SendButton>
@@ -249,11 +272,16 @@ const ChatInput: React.FC<ChatInputProps> = ({ channelName, channelId, chatRef, 
 
                 {showEmoji && (
                     <EmojiPicker>
-                        {EMOJI_LIST.map((emoji) => (
-                            <EmojiButton key={emoji} type="button" onClick={() => addEmoji(emoji)}>
-                                {emoji}
-                            </EmojiButton>
-                        ))}
+                        <EmojiHeader>
+                            <span>Quick reactions</span>
+                        </EmojiHeader>
+                        <EmojiGrid>
+                            {EMOJI_LIST.map((emoji) => (
+                                <EmojiButton key={emoji} type="button" onClick={() => addEmoji(emoji)}>
+                                    {emoji}
+                                </EmojiButton>
+                            ))}
+                        </EmojiGrid>
                     </EmojiPicker>
                 )}
 
@@ -267,15 +295,9 @@ const ChatInput: React.FC<ChatInputProps> = ({ channelName, channelId, chatRef, 
             </InputContainer>
 
             <InputHint>
-                {!isOnline && (
-                    <OfflineHint>
-                        <CloudOffIcon />
-                        <span>Offline - messages will be sent when you reconnect</span>
-                    </OfflineHint>
-                )}
-                <span>
+                <HintText>
                     Press <kbd>Enter</kbd> to send
-                </span>
+                </HintText>
             </InputHint>
         </InputWrapper>
     );
@@ -295,6 +317,17 @@ const fadeIn = keyframes`
     }
 `;
 
+const slideDown = keyframes`
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+`;
+
 const spin = keyframes`
     from {
         transform: rotate(0deg);
@@ -304,53 +337,102 @@ const spin = keyframes`
     }
 `;
 
-// Styled Components
-const InputWrapper = styled.div`
-    padding: var(--spacing-md) var(--spacing-lg);
-    background: var(--bg-chat);
-    border-top: 1px solid var(--glass-border);
-`;
-
-const InputContainer = styled.div<{ $isOffline?: boolean }>`
-    background: var(--glass-bg);
-    border: 1px solid ${(props) => (props.$isOffline ? 'rgba(233, 69, 96, 0.5)' : 'var(--glass-border)')};
-    border-radius: var(--radius-lg);
-    overflow: hidden;
-    transition: all var(--transition-normal);
-
-    &:focus-within {
-        border-color: ${(props) => (props.$isOffline ? 'rgba(233, 69, 96, 0.7)' : 'var(--accent-primary)')};
-        box-shadow: 0 0 0 2px ${(props) => (props.$isOffline ? 'rgba(233, 69, 96, 0.2)' : 'rgba(88, 101, 242, 0.2)')};
+const pulse = keyframes`
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.7;
     }
 `;
 
+// Styled Components
+const InputWrapper = styled.div`
+    padding: var(--spacing-md) var(--spacing-lg);
+    background: var(--bg-primary);
+    border-top: 1px solid var(--border-light);
+
+    @media (max-width: 768px) {
+        padding: var(--spacing-sm) var(--spacing-md);
+    }
+`;
+
+const OfflineBanner = styled.div`
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    margin-bottom: var(--spacing-sm);
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    border-radius: var(--radius-md);
+    color: var(--accent-danger);
+    font-size: 0.85rem;
+    animation: ${slideDown} 0.3s ease-out;
+
+    svg {
+        font-size: 1.1rem;
+    }
+
+    @media (max-width: 480px) {
+        font-size: 0.8rem;
+        padding: var(--spacing-xs) var(--spacing-sm);
+    }
+`;
+
+const InputContainer = styled.div<{ $isOffline?: boolean; $isFocused?: boolean }>`
+    background: var(--bg-secondary);
+    border: 2px solid ${(props) => {
+        if (props.$isOffline) return 'rgba(239, 68, 68, 0.3)';
+        if (props.$isFocused) return 'var(--accent-primary)';
+        return 'var(--border-light)';
+    }};
+    border-radius: var(--radius-xl);
+    overflow: hidden;
+    transition: all var(--transition-fast);
+    box-shadow: ${(props) => props.$isFocused ? 'var(--shadow-glow)' : 'var(--shadow-sm)'};
+`;
+
 const ImagePreviewContainer = styled.div`
-    position: relative;
     padding: var(--spacing-md);
-    border-bottom: 1px solid var(--glass-border);
+    border-bottom: 1px solid var(--border-light);
+    background: var(--bg-tertiary);
     animation: ${fadeIn} 0.2s ease-out;
+`;
+
+const PreviewWrapper = styled.div`
+    position: relative;
+    display: inline-block;
 `;
 
 const PreviewImage = styled.img`
     max-width: 200px;
     max-height: 150px;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-lg);
     object-fit: cover;
+    box-shadow: var(--shadow-md);
+
+    @media (max-width: 480px) {
+        max-width: 150px;
+        max-height: 100px;
+    }
 `;
 
 const RemoveButton = styled.button`
     position: absolute;
-    top: var(--spacing-sm);
-    left: calc(200px + var(--spacing-md));
-    width: 24px;
-    height: 24px;
+    top: -8px;
+    right: -8px;
+    width: 28px;
+    height: 28px;
     border-radius: var(--radius-full);
     background: var(--bg-primary);
     color: var(--text-secondary);
     display: flex;
     align-items: center;
     justify-content: center;
+    box-shadow: var(--shadow-md);
     transition: all var(--transition-fast);
+    border: 2px solid var(--border-light);
 
     svg {
         font-size: 1rem;
@@ -358,47 +440,88 @@ const RemoveButton = styled.button`
 
     &:hover {
         background: var(--accent-danger);
+        border-color: var(--accent-danger);
         color: white;
+        transform: scale(1.1);
     }
+`;
+
+const PreviewFileName = styled.span`
+    display: block;
+    margin-top: var(--spacing-sm);
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 `;
 
 const InputRow = styled.div`
     display: flex;
     align-items: center;
-    gap: var(--spacing-sm);
+    gap: var(--spacing-xs);
     padding: var(--spacing-sm);
+
+    @media (max-width: 480px) {
+        padding: var(--spacing-xs);
+    }
 `;
 
 const ActionButtons = styled.div`
     display: flex;
     gap: 2px;
+    flex-shrink: 0;
+
+    @media (max-width: 380px) {
+        /* Hide action buttons on very small screens */
+        display: none;
+    }
 `;
 
 const ActionButton = styled.button<{ $isActive?: boolean }>`
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 36px;
-    height: 36px;
+    width: 40px;
+    height: 40px;
     border-radius: var(--radius-md);
     color: ${(props) => (props.$isActive ? 'var(--accent-primary)' : 'var(--text-muted)')};
+    background: ${(props) => (props.$isActive ? 'var(--purple-50)' : 'transparent')};
     transition: all var(--transition-fast);
 
     svg {
-        font-size: 1.3rem;
+        font-size: 1.4rem;
     }
 
     &:hover {
-        background: var(--glass-bg-hover);
+        background: var(--purple-50);
         color: var(--accent-primary);
+    }
+
+    @media (max-width: 480px) {
+        width: 36px;
+        height: 36px;
+
+        svg {
+            font-size: 1.2rem;
+        }
     }
 `;
 
-const StyledInput = styled.input`
+const InputField = styled.div`
     flex: 1;
+    min-width: 0;
+`;
+
+const StyledInput = styled.input`
+    width: 100%;
     padding: var(--spacing-sm) var(--spacing-md);
-    font-size: 0.95rem;
+    font-size: 1rem;
     background: transparent;
+    color: var(--text-primary);
+    border: none;
+    outline: none;
 
     &::placeholder {
         color: var(--text-muted);
@@ -407,31 +530,51 @@ const StyledInput = styled.input`
     &:disabled {
         opacity: 0.6;
     }
+
+    @media (max-width: 480px) {
+        font-size: 0.95rem;
+        padding: var(--spacing-sm);
+    }
 `;
 
 const SendButton = styled.button<{ $hasContent?: boolean }>`
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 40px;
-    height: 40px;
-    border-radius: var(--radius-md);
-    background: ${(props) => (props.$hasContent ? 'var(--accent-primary)' : 'transparent')};
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius-lg);
+    background: ${(props) => (props.$hasContent ? 'var(--gradient-primary)' : 'var(--bg-tertiary)')};
     color: ${(props) => (props.$hasContent ? 'white' : 'var(--text-muted)')};
-    transition: all var(--transition-normal);
+    transition: all var(--transition-fast);
+    flex-shrink: 0;
+    box-shadow: ${(props) => (props.$hasContent ? 'var(--shadow-glow)' : 'none')};
 
     svg {
-        font-size: 1.2rem;
+        font-size: 1.3rem;
     }
 
     &:hover:not(:disabled) {
-        background: ${(props) => (props.$hasContent ? 'var(--accent-secondary)' : 'var(--glass-bg-hover)')};
         transform: ${(props) => (props.$hasContent ? 'scale(1.05)' : 'none')};
+        background: ${(props) => (props.$hasContent ? 'var(--gradient-primary)' : 'var(--bg-tertiary)')};
+    }
+
+    &:active:not(:disabled) {
+        transform: scale(0.95);
     }
 
     &:disabled {
         cursor: not-allowed;
-        opacity: 0.5;
+        opacity: 0.6;
+    }
+
+    @media (max-width: 480px) {
+        width: 40px;
+        height: 40px;
+
+        svg {
+            font-size: 1.2rem;
+        }
     }
 `;
 
@@ -445,64 +588,82 @@ const LoadingSpinner = styled.div`
 `;
 
 const EmojiPicker = styled.div`
+    border-top: 1px solid var(--border-light);
+    background: var(--bg-tertiary);
+    animation: ${fadeIn} 0.2s ease-out;
+`;
+
+const EmojiHeader = styled.div`
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-bottom: 1px solid var(--border-light);
+
+    span {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+`;
+
+const EmojiGrid = styled.div`
     display: grid;
     grid-template-columns: repeat(8, 1fr);
     gap: 4px;
     padding: var(--spacing-sm);
-    border-top: 1px solid var(--glass-border);
-    background: var(--bg-secondary);
-    animation: ${fadeIn} 0.2s ease-out;
+
+    @media (max-width: 480px) {
+        grid-template-columns: repeat(6, 1fr);
+    }
 `;
 
 const EmojiButton = styled.button`
     display: flex;
     align-items: center;
     justify-content: center;
-    height: 36px;
-    border-radius: var(--radius-sm);
-    font-size: 1.3rem;
+    height: 40px;
+    border-radius: var(--radius-md);
+    font-size: 1.4rem;
     transition: all var(--transition-fast);
 
     &:hover {
-        background: var(--glass-bg-hover);
+        background: var(--purple-50);
         transform: scale(1.2);
+    }
+
+    &:active {
+        transform: scale(0.9);
+    }
+
+    @media (max-width: 480px) {
+        height: 36px;
+        font-size: 1.2rem;
     }
 `;
 
 const InputHint = styled.div`
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    justify-content: flex-end;
     padding-top: var(--spacing-xs);
+`;
 
-    span {
-        font-size: 0.75rem;
-        color: var(--text-muted);
-    }
+const HintText = styled.span`
+    font-size: 0.75rem;
+    color: var(--text-muted);
 
     kbd {
         display: inline-block;
         padding: 2px 6px;
-        background: var(--glass-bg);
-        border: 1px solid var(--glass-border);
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border-light);
         border-radius: var(--radius-sm);
         font-size: 0.7rem;
         font-family: inherit;
         margin: 0 2px;
-    }
-`;
-
-const OfflineHint = styled.div`
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-xs);
-    color: var(--accent-danger);
-
-    svg {
-        font-size: 1rem;
+        color: var(--text-secondary);
     }
 
-    span {
-        color: var(--accent-danger);
+    @media (max-width: 480px) {
+        display: none;
     }
 `;

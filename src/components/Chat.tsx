@@ -2,11 +2,14 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import styled, { keyframes } from 'styled-components';
 import TagIcon from '@mui/icons-material/Tag';
 import StarBorderIcon from '@mui/icons-material/StarBorder';
+import StarIcon from '@mui/icons-material/Star';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import PeopleOutlineIcon from '@mui/icons-material/PeopleOutline';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import CallIcon from '@mui/icons-material/Call';
 import VideocamIcon from '@mui/icons-material/Videocam';
+import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
+import GroupsIcon from '@mui/icons-material/Groups';
 import { useSelector, useDispatch } from 'react-redux';
 import { selectRoomId, enterRoom } from '../features/appSlice';
 import ChatInput from './ChatInput';
@@ -43,6 +46,7 @@ const Chat: React.FC = () => {
     const [activeChannelCall, setActiveChannelCall] = useState<Call | null>(null);
     const [isJoiningCall, setIsJoiningCall] = useState(false);
     const [typingUsers, setTypingUsers] = useState<TypingUser[]>([]);
+    const [isStarred, setIsStarred] = useState(false);
 
     const [roomDetails] = useDocument(
         roomId !== 'null' ? doc(db, 'rooms', roomId) : null
@@ -275,13 +279,29 @@ const Chat: React.FC = () => {
         return (
             <ChatContainer>
                 <WelcomeScreen>
-                    <WelcomeIcon>
-                        <TagIcon />
-                    </WelcomeIcon>
-                    <WelcomeTitle>Welcome to Thryve Chat</WelcomeTitle>
-                    <WelcomeText>
-                        Select a channel from the sidebar to start chatting
-                    </WelcomeText>
+                    <WelcomeContent>
+                        <WelcomeIcon>
+                            <ChatBubbleOutlineIcon />
+                        </WelcomeIcon>
+                        <WelcomeTitle>Welcome to Thryve Chat</WelcomeTitle>
+                        <WelcomeText>
+                            Select a group or start a conversation from the sidebar to begin chatting
+                        </WelcomeText>
+                        <WelcomeFeatures>
+                            <FeatureItem>
+                                <FeatureIcon><GroupsIcon /></FeatureIcon>
+                                <FeatureText>Create groups</FeatureText>
+                            </FeatureItem>
+                            <FeatureItem>
+                                <FeatureIcon><VideocamIcon /></FeatureIcon>
+                                <FeatureText>Video calls</FeatureText>
+                            </FeatureItem>
+                            <FeatureItem>
+                                <FeatureIcon><ChatBubbleOutlineIcon /></FeatureIcon>
+                                <FeatureText>Real-time chat</FeatureText>
+                            </FeatureItem>
+                        </WelcomeFeatures>
+                    </WelcomeContent>
                 </WelcomeScreen>
             </ChatContainer>
         );
@@ -297,39 +317,46 @@ const Chat: React.FC = () => {
                     <ChannelInfo>
                         <ChannelName>{roomDetails?.data()?.name}</ChannelName>
                         <ChannelDescription>
-                            Start a conversation in #{roomDetails?.data()?.name}
+                            {roomMessages?.docs.length || 0} messages
                         </ChannelDescription>
                     </ChannelInfo>
-                    <StarButton title="Star channel">
-                        <StarBorderIcon />
-                    </StarButton>
                 </HeaderLeft>
                 <HeaderRight>
-                    <CallButton
-                        title="Start Voice Call (Channel)"
-                        onClick={() => handleStartGroupCall('audio')}
-                        disabled={isInCall || isStartingCall}
-                    >
-                        <CallIcon />
-                    </CallButton>
-                    <CallButton
-                        title="Start Video Call (Channel)"
-                        onClick={() => handleStartGroupCall('video')}
-                        disabled={isInCall || isStartingCall}
-                    >
-                        <VideocamIcon />
-                    </CallButton>
+                    <HeaderActions>
+                        <ActionButton
+                            onClick={() => setIsStarred(!isStarred)}
+                            $active={isStarred}
+                            title={isStarred ? 'Unstar' : 'Star channel'}
+                        >
+                            {isStarred ? <StarIcon /> : <StarBorderIcon />}
+                        </ActionButton>
+                        <ActionButton
+                            title="Voice Call"
+                            onClick={() => handleStartGroupCall('audio')}
+                            disabled={isInCall || isStartingCall}
+                        >
+                            <CallIcon />
+                        </ActionButton>
+                        <ActionButton
+                            title="Video Call"
+                            onClick={() => handleStartGroupCall('video')}
+                            disabled={isInCall || isStartingCall}
+                        >
+                            <VideocamIcon />
+                        </ActionButton>
+                    </HeaderActions>
+                    <Separator />
                     <MembersButton
                         title="Members"
                         onClick={() => setShowMembersPanel(!showMembersPanel)}
                         $active={showMembersPanel}
                     >
                         <PeopleOutlineIcon />
-                        <span>Members</span>
+                        <span className="button-text">Members</span>
                     </MembersButton>
-                    <HeaderButton title="Details">
+                    <ActionButton title="Details">
                         <InfoOutlinedIcon />
-                    </HeaderButton>
+                    </ActionButton>
                     {isChannelCreator && (
                         <DeleteButton
                             title="Delete Channel"
@@ -355,82 +382,89 @@ const Chat: React.FC = () => {
             <ChatBody>
                 <ChatContent>
                     <ChatMessages>
-                {loading ? (
-                    <LoadingContainer>
-                        <LoadingSpinner />
-                        <span>Loading messages...</span>
-                    </LoadingContainer>
-                ) : (
-                    <>
-                        <ChannelStart>
-                            <ChannelStartIcon>
-                                <TagIcon />
-                            </ChannelStartIcon>
-                            <h2>#{roomDetails?.data()?.name}</h2>
-                            <p>This is the start of the #{roomDetails?.data()?.name} channel.</p>
-                        </ChannelStart>
-                        {roomMessages?.docs.map((docItem) => {
-                            const { message, timestamp, users, userImage, imageUrl, reactions } = docItem.data();
-                            return (
-                                <Message
-                                    key={docItem.id}
-                                    id={docItem.id}
-                                    message={message}
-                                    timestamp={timestamp}
-                                    users={users}
-                                    userImage={userImage}
-                                    imageUrl={imageUrl}
-                                    reactions={reactions}
-                                    roomId={roomId}
-                                    userId={user?.uid}
-                                />
-                            );
-                        })}
-                        {pendingMessages.map((msg) => (
-                            <Message
-                                key={msg.id}
-                                id={msg.id}
-                                message={msg.message}
-                                timestamp={null}
-                                users={msg.users}
-                                userImage={msg.userImage}
-                                imageUrl={msg.imageData?.base64}
-                                isPending={true}
-                                pendingStatus={msg.status}
-                                roomId={roomId}
-                                userId={user?.uid}
-                            />
-                        ))}
-                        <ChatBottom ref={chatRef} />
-                    </>
-                )}
-                </ChatMessages>
+                        {loading ? (
+                            <LoadingContainer>
+                                <LoadingSpinner />
+                                <LoadingText>Loading messages...</LoadingText>
+                            </LoadingContainer>
+                        ) : (
+                            <>
+                                <ChannelStart>
+                                    <ChannelStartBadge>
+                                        <TagIcon />
+                                    </ChannelStartBadge>
+                                    <ChannelStartTitle>
+                                        Welcome to #{roomDetails?.data()?.name}
+                                    </ChannelStartTitle>
+                                    <ChannelStartText>
+                                        This is the beginning of your conversation in this group. Send a message to get started!
+                                    </ChannelStartText>
+                                </ChannelStart>
 
-                {/* Typing Indicator */}
-                {typingUsers.length > 0 && (
-                    <TypingIndicator>
-                        <TypingDots>
-                            <span></span>
-                            <span></span>
-                            <span></span>
-                        </TypingDots>
-                        <TypingText>
-                            {typingUsers.length === 1
-                                ? `${typingUsers[0].odUserName} is typing...`
-                                : typingUsers.length === 2
-                                ? `${typingUsers[0].odUserName} and ${typingUsers[1].odUserName} are typing...`
-                                : `${typingUsers.length} people are typing...`}
-                        </TypingText>
-                    </TypingIndicator>
-                )}
+                                <MessagesWrapper>
+                                    {roomMessages?.docs.map((docItem) => {
+                                        const { message, timestamp, users, userImage, imageUrl, reactions } = docItem.data();
+                                        return (
+                                            <Message
+                                                key={docItem.id}
+                                                id={docItem.id}
+                                                message={message}
+                                                timestamp={timestamp}
+                                                users={users}
+                                                userImage={userImage}
+                                                imageUrl={imageUrl}
+                                                reactions={reactions}
+                                                roomId={roomId}
+                                                userId={user?.uid}
+                                            />
+                                        );
+                                    })}
+                                    {pendingMessages.map((msg) => (
+                                        <Message
+                                            key={msg.id}
+                                            id={msg.id}
+                                            message={msg.message}
+                                            timestamp={null}
+                                            users={msg.users}
+                                            userImage={msg.userImage}
+                                            imageUrl={msg.imageData?.base64}
+                                            isPending={true}
+                                            pendingStatus={msg.status}
+                                            roomId={roomId}
+                                            userId={user?.uid}
+                                        />
+                                    ))}
+                                </MessagesWrapper>
+                                <ChatBottom ref={chatRef} />
+                            </>
+                        )}
+                    </ChatMessages>
 
-                <ChatInput
-                    chatRef={chatRef}
-                    channelName={roomDetails?.data()?.name}
-                    channelId={roomId}
-                    onPendingUpdate={loadPendingMessages}
-                />
-            </ChatContent>
+                    {/* Typing Indicator */}
+                    {typingUsers.length > 0 && (
+                        <TypingIndicator>
+                            <TypingDots>
+                                <span></span>
+                                <span></span>
+                                <span></span>
+                            </TypingDots>
+                            <TypingText>
+                                {typingUsers.length === 1
+                                    ? `${typingUsers[0].odUserName} is typing...`
+                                    : typingUsers.length === 2
+                                    ? `${typingUsers[0].odUserName} and ${typingUsers[1].odUserName} are typing...`
+                                    : `${typingUsers.length} people are typing...`}
+                            </TypingText>
+                        </TypingIndicator>
+                    )}
+
+                    <ChatInput
+                        chatRef={chatRef}
+                        channelName={roomDetails?.data()?.name}
+                        channelId={roomId}
+                        onPendingUpdate={loadPendingMessages}
+                    />
+                </ChatContent>
 
                 {/* Members Panel */}
                 {showMembersPanel && user && (
@@ -497,15 +531,33 @@ const float = keyframes`
     }
 `;
 
+const bounce = keyframes`
+    0%, 60%, 100% {
+        transform: translateY(0);
+    }
+    30% {
+        transform: translateY(-4px);
+    }
+`;
+
+const pulse = keyframes`
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+`;
+
 // Styled Components
 const ChatContainer = styled.div`
     flex: 1;
     display: flex;
     flex-direction: column;
-    height: calc(100vh - var(--header-height));
-    margin-top: var(--header-height);
-    background: var(--bg-chat);
+    height: 100%;
+    background: var(--bg-secondary);
     position: relative;
+    overflow: hidden;
 `;
 
 const ChatBody = styled.div`
@@ -519,16 +571,24 @@ const ChatContent = styled.div`
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    min-width: 0;
 `;
 
 const WelcomeScreen = styled.div`
     flex: 1;
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
     padding: var(--spacing-xl);
+    background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+`;
+
+const WelcomeContent = styled.div`
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     text-align: center;
+    max-width: 480px;
     animation: ${fadeIn} 0.5s ease-out;
 `;
 
@@ -536,7 +596,7 @@ const WelcomeIcon = styled.div`
     width: 100px;
     height: 100px;
     border-radius: var(--radius-xl);
-    background: var(--gradient-accent);
+    background: var(--gradient-primary);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -553,18 +613,71 @@ const WelcomeIcon = styled.div`
 const WelcomeTitle = styled.h1`
     font-size: 2rem;
     font-weight: 700;
-    color: var(--text-primary);
     margin-bottom: var(--spacing-md);
-    background: var(--gradient-accent);
+    background: var(--gradient-primary);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
+
+    @media (max-width: 480px) {
+        font-size: 1.5rem;
+    }
 `;
 
 const WelcomeText = styled.p`
     font-size: 1rem;
-    color: var(--text-muted);
-    max-width: 400px;
+    color: var(--text-secondary);
+    margin-bottom: var(--spacing-xl);
+    line-height: 1.6;
+
+    @media (max-width: 480px) {
+        font-size: 0.9rem;
+    }
+`;
+
+const WelcomeFeatures = styled.div`
+    display: flex;
+    gap: var(--spacing-lg);
+    flex-wrap: wrap;
+    justify-content: center;
+
+    @media (max-width: 480px) {
+        gap: var(--spacing-md);
+    }
+`;
+
+const FeatureItem = styled.div`
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-sm);
+`;
+
+const FeatureIcon = styled.div`
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius-lg);
+    background: var(--purple-50);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--transition-fast);
+
+    svg {
+        font-size: 1.5rem;
+        color: var(--accent-primary);
+    }
+
+    &:hover {
+        background: var(--purple-100);
+        transform: scale(1.1);
+    }
+`;
+
+const FeatureText = styled.span`
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    font-weight: 500;
 `;
 
 const ChatHeader = styled.div`
@@ -572,86 +685,124 @@ const ChatHeader = styled.div`
     align-items: center;
     justify-content: space-between;
     padding: var(--spacing-md) var(--spacing-lg);
-    border-bottom: 1px solid var(--glass-border);
-    background: var(--glass-bg);
+    background: var(--bg-primary);
+    border-bottom: 1px solid var(--border-light);
+    gap: var(--spacing-md);
+
+    @media (max-width: 768px) {
+        padding: var(--spacing-sm) var(--spacing-md);
+    }
 `;
 
 const HeaderLeft = styled.div`
     display: flex;
     align-items: center;
     gap: var(--spacing-md);
+    min-width: 0;
+    flex: 1;
 `;
 
 const ChannelIcon = styled.div`
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 36px;
-    height: 36px;
-    border-radius: var(--radius-md);
-    background: var(--glass-bg);
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-lg);
+    background: var(--purple-50);
+    flex-shrink: 0;
 
     svg {
-        font-size: 1.2rem;
-        color: var(--text-muted);
+        font-size: 1.3rem;
+        color: var(--accent-primary);
+    }
+
+    @media (max-width: 480px) {
+        width: 36px;
+        height: 36px;
+
+        svg {
+            font-size: 1.1rem;
+        }
     }
 `;
 
 const ChannelInfo = styled.div`
     display: flex;
     flex-direction: column;
+    min-width: 0;
 `;
 
 const ChannelName = styled.h3`
-    font-size: 1rem;
+    font-size: 1.1rem;
     font-weight: 600;
     color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+
+    @media (max-width: 480px) {
+        font-size: 1rem;
+    }
 `;
 
 const ChannelDescription = styled.span`
-    font-size: 0.75rem;
+    font-size: 0.8rem;
     color: var(--text-muted);
-`;
-
-const StarButton = styled.button`
-    color: var(--text-muted);
-    padding: var(--spacing-xs);
-    border-radius: var(--radius-sm);
-    transition: all var(--transition-fast);
-
-    svg {
-        font-size: 1.2rem;
-    }
-
-    &:hover {
-        color: var(--accent-warning);
-        background: var(--glass-bg);
-    }
 `;
 
 const HeaderRight = styled.div`
     display: flex;
     align-items: center;
-    gap: var(--spacing-sm);
+    gap: var(--spacing-xs);
+    flex-shrink: 0;
 `;
 
-const HeaderButton = styled.button`
+const HeaderActions = styled.div`
     display: flex;
     align-items: center;
     gap: var(--spacing-xs);
-    padding: var(--spacing-sm) var(--spacing-md);
+
+    @media (max-width: 600px) {
+        display: none;
+    }
+`;
+
+const Separator = styled.div`
+    width: 1px;
+    height: 24px;
+    background: var(--border-light);
+    margin: 0 var(--spacing-xs);
+
+    @media (max-width: 600px) {
+        display: none;
+    }
+`;
+
+const ActionButton = styled.button<{ $active?: boolean; disabled?: boolean }>`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
     border-radius: var(--radius-md);
-    color: var(--text-secondary);
-    font-size: 0.85rem;
+    color: ${props => {
+        if (props.disabled) return 'var(--text-muted)';
+        if (props.$active) return 'var(--accent-warning)';
+        return 'var(--text-secondary)';
+    }};
+    background: ${props => props.$active ? 'rgba(245, 158, 11, 0.1)' : 'transparent'};
     transition: all var(--transition-fast);
+    cursor: ${props => props.disabled ? 'not-allowed' : 'pointer'};
+    opacity: ${props => props.disabled ? 0.5 : 1};
 
     svg {
-        font-size: 1.1rem;
+        font-size: 1.2rem;
     }
 
-    &:hover {
-        background: var(--glass-bg-hover);
-        color: var(--text-primary);
+    &:hover:not(:disabled) {
+        background: var(--purple-50);
+        color: var(--accent-primary);
     }
 `;
 
@@ -662,17 +813,24 @@ const MembersButton = styled.button<{ $active: boolean }>`
     padding: var(--spacing-sm) var(--spacing-md);
     border-radius: var(--radius-md);
     color: ${props => props.$active ? 'var(--accent-primary)' : 'var(--text-secondary)'};
-    font-size: 0.85rem;
+    background: ${props => props.$active ? 'var(--purple-50)' : 'transparent'};
+    font-size: 0.9rem;
+    font-weight: 500;
     transition: all var(--transition-fast);
-    background: ${props => props.$active ? 'var(--glass-bg-hover)' : 'transparent'};
 
     svg {
         font-size: 1.1rem;
     }
 
+    .button-text {
+        @media (max-width: 600px) {
+            display: none;
+        }
+    }
+
     &:hover {
-        background: var(--glass-bg-hover);
-        color: ${props => props.$active ? 'var(--accent-primary)' : 'var(--text-primary)'};
+        background: var(--purple-50);
+        color: var(--accent-primary);
     }
 `;
 
@@ -680,7 +838,8 @@ const DeleteButton = styled.button`
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: var(--spacing-sm);
+    width: 36px;
+    height: 36px;
     border-radius: var(--radius-md);
     color: var(--text-muted);
     transition: all var(--transition-fast);
@@ -690,36 +849,44 @@ const DeleteButton = styled.button`
     }
 
     &:hover {
-        background: rgba(233, 69, 96, 0.1);
+        background: rgba(239, 68, 68, 0.1);
         color: var(--accent-danger);
-    }
-`;
-
-const CallButton = styled.button<{ disabled?: boolean }>`
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: var(--spacing-sm);
-    border-radius: var(--radius-md);
-    color: ${props => props.disabled ? 'var(--text-muted)' : 'var(--text-secondary)'};
-    transition: all var(--transition-fast);
-    cursor: ${props => props.disabled ? 'not-allowed' : 'pointer'};
-    opacity: ${props => props.disabled ? 0.5 : 1};
-
-    svg {
-        font-size: 1.2rem;
-    }
-
-    &:hover:not(:disabled) {
-        background: rgba(59, 165, 92, 0.1);
-        color: var(--accent-success);
     }
 `;
 
 const ChatMessages = styled.div`
     flex: 1;
     overflow-y: auto;
+    overflow-x: hidden;
     padding: var(--spacing-md);
+
+    /* Custom scrollbar */
+    &::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    &::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    &::-webkit-scrollbar-thumb {
+        background: var(--border-medium);
+        border-radius: 3px;
+    }
+
+    &::-webkit-scrollbar-thumb:hover {
+        background: var(--text-muted);
+    }
+
+    @media (max-width: 480px) {
+        padding: var(--spacing-sm);
+    }
+`;
+
+const MessagesWrapper = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
 `;
 
 const LoadingContainer = styled.div`
@@ -728,65 +895,71 @@ const LoadingContainer = styled.div`
     align-items: center;
     justify-content: center;
     height: 100%;
-    gap: var(--spacing-md);
-    color: var(--text-muted);
+    gap: var(--spacing-lg);
 `;
 
 const LoadingSpinner = styled.div`
-    width: 40px;
-    height: 40px;
-    border: 3px solid var(--glass-border);
+    width: 48px;
+    height: 48px;
+    border: 3px solid var(--border-light);
     border-top-color: var(--accent-primary);
     border-radius: 50%;
     animation: ${spin} 1s linear infinite;
 `;
 
-const ChannelStart = styled.div`
-    padding: var(--spacing-xl) 0;
-    margin-bottom: var(--spacing-lg);
-    animation: ${fadeIn} 0.5s ease-out;
-
-    h2 {
-        font-size: 1.5rem;
-        font-weight: 700;
-        color: var(--text-primary);
-        margin-bottom: var(--spacing-xs);
-    }
-
-    p {
-        color: var(--text-muted);
-        font-size: 0.9rem;
-    }
+const LoadingText = styled.span`
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    animation: ${pulse} 1.5s ease-in-out infinite;
 `;
 
-const ChannelStartIcon = styled.div`
-    width: 60px;
-    height: 60px;
-    border-radius: var(--radius-lg);
-    background: var(--glass-bg);
+const ChannelStart = styled.div`
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: var(--spacing-xl);
+    margin-bottom: var(--spacing-lg);
+    animation: ${fadeIn} 0.5s ease-out;
+    text-align: center;
+`;
+
+const ChannelStartBadge = styled.div`
+    width: 64px;
+    height: 64px;
+    border-radius: var(--radius-xl);
+    background: var(--gradient-primary);
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-bottom: var(--spacing-md);
+    margin-bottom: var(--spacing-lg);
+    box-shadow: var(--shadow-glow);
 
     svg {
-        font-size: 30px;
-        color: var(--accent-primary);
+        font-size: 32px;
+        color: white;
     }
+`;
+
+const ChannelStartTitle = styled.h2`
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: var(--spacing-sm);
+
+    @media (max-width: 480px) {
+        font-size: 1.25rem;
+    }
+`;
+
+const ChannelStartText = styled.p`
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    max-width: 400px;
+    line-height: 1.5;
 `;
 
 const ChatBottom = styled.div`
-    height: 100px;
-`;
-
-// Typing indicator animations
-const bounce = keyframes`
-    0%, 60%, 100% {
-        transform: translateY(0);
-    }
-    30% {
-        transform: translateY(-4px);
-    }
+    height: 80px;
 `;
 
 const TypingIndicator = styled.div`
@@ -794,14 +967,15 @@ const TypingIndicator = styled.div`
     align-items: center;
     gap: var(--spacing-sm);
     padding: var(--spacing-xs) var(--spacing-lg);
-    color: var(--text-muted);
-    font-size: 0.8rem;
     animation: ${fadeIn} 0.2s ease-out;
 `;
 
 const TypingDots = styled.div`
     display: flex;
     gap: 3px;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    background: var(--purple-50);
+    border-radius: var(--radius-full);
 
     span {
         width: 6px;
@@ -822,5 +996,6 @@ const TypingDots = styled.div`
 
 const TypingText = styled.span`
     color: var(--text-muted);
+    font-size: 0.85rem;
     font-style: italic;
 `;

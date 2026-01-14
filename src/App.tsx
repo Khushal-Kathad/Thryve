@@ -1,4 +1,4 @@
-import React, { useEffect, lazy, Suspense } from 'react';
+import React, { useEffect, lazy, Suspense, useState } from 'react';
 import './App.css';
 import Header from './components/Header';
 import styled, { keyframes } from 'styled-components';
@@ -46,6 +46,9 @@ const AppContent: React.FC = () => {
     const isOnline = useNetworkStatus();
     const { showToast } = useToast();
 
+    // Mobile sidebar state
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
     // Call state selectors
     const currentCall = useSelector(selectCurrentCall);
     const incomingCall = useSelector(selectIncomingCall);
@@ -54,6 +57,15 @@ const AppContent: React.FC = () => {
     // Panel state selectors
     const activePanel = useSelector(selectActivePanel);
     const showNewMessageModal = useSelector(selectShowNewMessageModal);
+
+    // Close sidebar when switching panels on mobile
+    const handleSidebarToggle = () => {
+        setIsSidebarOpen(!isSidebarOpen);
+    };
+
+    const handleCloseSidebar = () => {
+        setIsSidebarOpen(false);
+    };
 
     // Render the appropriate panel based on activePanel state
     const renderMainContent = () => {
@@ -188,10 +200,18 @@ const AppContent: React.FC = () => {
                 <Login />
             ) : (
                 <>
-                    <Header />
+                    <Header
+                        onMenuClick={handleSidebarToggle}
+                        isSidebarOpen={isSidebarOpen}
+                    />
                     <AppBody>
-                        <Sidebar />
-                        {renderMainContent()}
+                        <Sidebar
+                            isOpen={isSidebarOpen}
+                            onClose={handleCloseSidebar}
+                        />
+                        <MainContent>
+                            {renderMainContent()}
+                        </MainContent>
                     </AppBody>
 
                     {/* New Message Modal */}
@@ -275,6 +295,20 @@ const AppContainer = styled.div`
 const AppBody = styled.div`
     display: flex;
     height: 100vh;
+`;
+
+const MainContent = styled.main`
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    height: calc(100vh - var(--header-height));
+    margin-top: var(--header-height);
+    background: var(--bg-secondary);
+
+    @media (max-width: 768px) {
+        width: 100%;
+    }
 `;
 
 const LoadingScreen = styled.div`
