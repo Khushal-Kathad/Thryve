@@ -35,6 +35,7 @@ import MembersList from './MembersList';
 import ActiveCallBanner from './ui/ActiveCallBanner';
 import type { PendingMessage, Call } from '../types';
 import { userService } from '../services/userService';
+import { useDebounce, useDebouncedCallback } from '../hooks/useDebounce';
 
 const Chat: React.FC = () => {
     const chatRef = useRef<HTMLDivElement>(null);
@@ -146,17 +147,22 @@ const Chat: React.FC = () => {
         });
     }, []);
 
-    const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-        const query = e.target.value;
-        setSearchQuery(query);
+    // Debounced search query
+    const debouncedSearchQuery = useDebounce(searchQuery, 250);
 
-        if (!query.trim() || !roomMessages?.docs) {
+    const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+        setSearchQuery(e.target.value);
+    }, []);
+
+    // Perform search when debounced query changes
+    useEffect(() => {
+        if (!debouncedSearchQuery.trim() || !roomMessages?.docs) {
             setSearchResults([]);
             setCurrentSearchIndex(0);
             return;
         }
 
-        const lowerQuery = query.toLowerCase();
+        const lowerQuery = debouncedSearchQuery.toLowerCase();
         const matchingIds = roomMessages.docs
             .filter(doc => {
                 const data = doc.data();
@@ -169,10 +175,12 @@ const Chat: React.FC = () => {
 
         // Scroll to first result
         if (matchingIds.length > 0) {
-            const element = document.getElementById(`message-${matchingIds[0]}`);
-            element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            requestAnimationFrame(() => {
+                const element = document.getElementById(`message-${matchingIds[0]}`);
+                element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            });
         }
-    }, [roomMessages]);
+    }, [debouncedSearchQuery, roomMessages]);
 
     const navigateSearch = useCallback((direction: 'up' | 'down') => {
         if (searchResults.length === 0) return;
@@ -974,12 +982,17 @@ const ChatContainer = styled.div`
     background: var(--bg-secondary);
     position: relative;
     overflow: hidden;
+    /* GPU acceleration */
+    transform: translateZ(0);
+    will-change: transform;
 `;
 
 const ChatBody = styled.div`
     flex: 1;
     display: flex;
     overflow: hidden;
+    /* Prevent overscroll bounce */
+    overscroll-behavior: contain;
 `;
 
 const ChatContent = styled.div`
@@ -988,6 +1001,8 @@ const ChatContent = styled.div`
     flex-direction: column;
     overflow: hidden;
     min-width: 0;
+    /* GPU acceleration for smoother scrolling */
+    transform: translateZ(0);
 `;
 
 const WelcomeScreen = styled.div`
@@ -1396,6 +1411,13 @@ const ChatMessages = styled.div`
     overflow-y: auto;
     overflow-x: hidden;
     padding: var(--spacing-md);
+    /* Smooth momentum scrolling on iOS */
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    scroll-behavior: smooth;
+    /* GPU acceleration */
+    transform: translateZ(0);
+    will-change: scroll-position;
 
     &::-webkit-scrollbar {
         width: 6px;
@@ -1406,7 +1428,7 @@ const ChatMessages = styled.div`
     }
 
     &::-webkit-scrollbar-thumb {
-        background: var(--border-medium);
+        background: var(--border-default);
         border-radius: 3px;
     }
 
@@ -1414,8 +1436,19 @@ const ChatMessages = styled.div`
         background: var(--text-muted);
     }
 
-    @media (max-width: 480px) {
+    @media (max-width: 768px) {
         padding: var(--spacing-sm);
+        /* Hide scrollbar on mobile for cleaner look */
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+
+        &::-webkit-scrollbar {
+            display: none;
+        }
+    }
+
+    @media (max-width: 480px) {
+        padding: var(--spacing-xs);
     }
 `;
 

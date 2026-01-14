@@ -312,12 +312,23 @@ const float = keyframes`
 // Styled Components
 const AppContainer = styled.div`
     min-height: 100vh;
-    background: var(--gradient-primary);
+    min-height: 100dvh;
+    min-height: -webkit-fill-available;
+    background: var(--bg-primary);
+    display: flex;
+    flex-direction: column;
+    /* GPU acceleration */
+    transform: translateZ(0);
 `;
 
 const AppBody = styled.div`
     display: flex;
+    flex: 1;
     height: 100vh;
+    height: 100dvh;
+    height: -webkit-fill-available;
+    overflow: hidden;
+    position: relative;
 `;
 
 const MainContent = styled.main`
@@ -326,14 +337,26 @@ const MainContent = styled.main`
     flex-direction: column;
     min-width: 0;
     height: calc(100vh - var(--header-height));
+    height: calc(100dvh - var(--header-height));
     margin-top: var(--header-height);
     background: var(--bg-secondary);
+    overflow: hidden;
+    /* GPU acceleration for smoother rendering */
+    transform: translateZ(0);
+    will-change: transform;
 
     @media (max-width: 768px) {
         width: 100%;
-        /* Account for bottom nav height */
-        height: calc(100vh - var(--header-height) - 70px);
+        /* Account for bottom nav height with safe area */
+        height: calc(100dvh - var(--header-height) - var(--bottom-nav-height, 70px));
+        height: calc(100vh - var(--header-height) - var(--bottom-nav-height, 70px));
         padding-bottom: env(safe-area-inset-bottom, 0);
+        /* Smooth scrolling for mobile */
+        -webkit-overflow-scrolling: touch;
+    }
+
+    @media (max-width: 768px) and (orientation: landscape) {
+        height: calc(100dvh - var(--header-height) - var(--bottom-nav-height, 56px));
     }
 `;
 

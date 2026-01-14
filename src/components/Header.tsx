@@ -269,6 +269,8 @@ const HeaderContainer = styled.header<{ $hasOfflineBanner?: boolean }>`
     justify-content: space-between;
     height: var(--header-height);
     padding: 0 var(--spacing-4);
+    padding-left: max(var(--spacing-4), env(safe-area-inset-left, 0));
+    padding-right: max(var(--spacing-4), env(safe-area-inset-right, 0));
     background: var(--glass-bg-strong);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
@@ -279,9 +281,16 @@ const HeaderContainer = styled.header<{ $hasOfflineBanner?: boolean }>`
     right: 0;
     z-index: 1000;
     transition: top var(--transition-normal), background var(--transition-normal);
+    /* GPU acceleration */
+    transform: translateZ(0);
+    will-change: transform;
 
     @media (min-width: 768px) {
         padding: 0 var(--spacing-6);
+    }
+
+    @media (max-width: 768px) and (orientation: landscape) {
+        height: var(--header-height);
     }
 `;
 
@@ -296,19 +305,32 @@ const MobileMenuButton = styled.button`
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
     border-radius: var(--radius-lg);
     color: var(--text-secondary);
     transition: all var(--transition-fast);
+    /* Touch optimization */
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    user-select: none;
 
     svg {
         font-size: 1.5rem;
+        transition: transform 0.2s ease;
     }
 
     &:hover {
         background: var(--surface-hover);
         color: var(--accent-primary);
+    }
+
+    &:active {
+        transform: scale(0.92);
+
+        svg {
+            transform: scale(0.95);
+        }
     }
 
     @media (min-width: 768px) {

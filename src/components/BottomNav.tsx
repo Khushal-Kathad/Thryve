@@ -112,18 +112,33 @@ const NavContainer = styled.nav`
     bottom: 0;
     left: 0;
     right: 0;
-    background: var(--bg-primary);
+    background: var(--glass-bg-strong);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     border-top: 1px solid var(--border-light);
     padding: var(--spacing-xs) 0;
-    padding-bottom: env(safe-area-inset-bottom, var(--spacing-xs));
+    /* Enhanced safe area handling */
+    padding-bottom: max(env(safe-area-inset-bottom, 8px), 8px);
+    padding-left: env(safe-area-inset-left, 0);
+    padding-right: env(safe-area-inset-right, 0);
     z-index: 1000;
-    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08);
     animation: ${slideUp} 0.3s ease-out;
+    /* GPU acceleration */
+    transform: translateZ(0);
+    will-change: transform;
 
     @media (max-width: 768px) {
         display: flex;
         justify-content: space-around;
         align-items: center;
+        min-height: var(--bottom-nav-height, 70px);
+    }
+
+    /* Landscape optimization */
+    @media (max-width: 768px) and (orientation: landscape) {
+        min-height: var(--bottom-nav-height, 56px);
+        padding: var(--spacing-xs) var(--spacing-lg);
     }
 `;
 
@@ -136,20 +151,26 @@ const NavItem = styled.button<{ $active: boolean }>`
     padding: var(--spacing-sm) var(--spacing-xs);
     background: transparent;
     position: relative;
-    transition: all 0.2s ease;
+    transition: transform 0.15s ease;
     min-width: 60px;
+    min-height: 52px;
+    /* Touch optimization */
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    user-select: none;
 
     &::before {
         content: '';
         position: absolute;
         top: 50%;
         left: 50%;
-        width: 48px;
-        height: 48px;
+        width: 52px;
+        height: 52px;
         border-radius: 50%;
         background: var(--purple-50);
         transform: translate(-50%, -50%) scale(0);
-        transition: transform 0.2s ease;
+        transition: transform 0.2s cubic-bezier(0.32, 0.72, 0, 1);
+        will-change: transform;
     }
 
     &:active::before {
@@ -157,15 +178,22 @@ const NavItem = styled.button<{ $active: boolean }>`
     }
 
     svg {
-        font-size: 1.6rem;
+        font-size: 1.5rem;
         color: ${props => props.$active ? 'var(--accent-primary)' : 'var(--text-muted)'};
-        transition: all 0.2s ease;
+        transition: color 0.15s ease, transform 0.15s ease;
         position: relative;
         z-index: 1;
     }
 
     &:active svg {
-        transform: scale(0.9);
+        transform: scale(0.92);
+    }
+
+    /* Landscape: horizontal layout */
+    @media (max-width: 768px) and (orientation: landscape) {
+        flex-direction: row;
+        gap: var(--spacing-xs);
+        padding: var(--spacing-xs) var(--spacing-sm);
     }
 `;
 
