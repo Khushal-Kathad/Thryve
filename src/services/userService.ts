@@ -79,10 +79,29 @@ class UserService {
         }
 
         const usersRef = collection(db, 'users');
-        const q = query(usersRef, orderBy('lastSeen', 'desc'), limit(maxUsers));
+        // Don't use orderBy to include users without lastSeen field
+        const q = query(usersRef, limit(maxUsers));
 
         this.usersUnsubscribe = onSnapshot(q, (snapshot) => {
-            const users = snapshot.docs.map(doc => doc.data() as AppUser);
+            const users = snapshot.docs.map(doc => {
+                const data = doc.data();
+                // Ensure all fields have default values for old users
+                return {
+                    uid: data.uid || doc.id,
+                    displayName: data.displayName || 'Unknown',
+                    email: data.email || '',
+                    photoURL: data.photoURL || '',
+                    lastSeen: data.lastSeen || 0,
+                    isOnline: data.isOnline ?? false,
+                    createdAt: data.createdAt || 0,
+                } as AppUser;
+            });
+            // Sort by online status first, then by lastSeen
+            users.sort((a, b) => {
+                if (a.isOnline && !b.isOnline) return -1;
+                if (!a.isOnline && b.isOnline) return 1;
+                return (b.lastSeen || 0) - (a.lastSeen || 0);
+            });
             onUsersChange(users);
         });
 

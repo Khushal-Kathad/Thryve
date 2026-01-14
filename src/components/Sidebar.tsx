@@ -64,8 +64,10 @@ const Sidebar: React.FC = () => {
         return () => unsubscribe();
     }, []);
 
-    // Filter to get other users (not current user)
+    // Filter to get other users (not current user) - split by online status
     const otherUsers = allUsers.filter(u => u.uid !== user?.uid);
+    const onlineUsers = otherUsers.filter(u => u.isOnline);
+    const offlineUsers = otherUsers.filter(u => !u.isOnline);
 
     // Handle menu option clicks
     const handleMenuClick = (panel: SidebarPanel) => {
@@ -235,7 +237,7 @@ const Sidebar: React.FC = () => {
                         <SectionHeader onClick={() => setShowAllUsers(!showAllUsers)}>
                             <ExpandMoreIcon style={{ transform: showAllUsers ? 'rotate(0deg)' : 'rotate(-90deg)' }} />
                             <span>Direct Messages</span>
-                            <ChannelCount>{otherUsers.length}</ChannelCount>
+                            {onlineUsers.length > 0 && <OnlineBadge>{onlineUsers.length} online</OnlineBadge>}
                         </SectionHeader>
 
                         {showAllUsers && (
@@ -247,25 +249,59 @@ const Sidebar: React.FC = () => {
                                     <span>{user?.displayName?.split(' ')[0]} (you)</span>
                                 </OnlineUser>
 
-                                {/* Other users */}
-                                {otherUsers.map((otherUser) => (
-                                    <OnlineUser
-                                        key={otherUser.uid}
-                                        onClick={() => handleStartDM(otherUser)}
-                                        title={`Start conversation with ${otherUser.displayName}`}
-                                    >
-                                        {otherUser.photoURL ? (
-                                            <UserAvatar src={otherUser.photoURL} />
-                                        ) : (
-                                            <UserAvatarPlaceholder>
-                                                <PersonIcon />
-                                            </UserAvatarPlaceholder>
-                                        )}
-                                        <OnlineIndicator $isOnline={otherUser.isOnline} />
-                                        <UserName>{otherUser.displayName}</UserName>
-                                        {otherUser.isOnline && <OnlineText>online</OnlineText>}
-                                    </OnlineUser>
-                                ))}
+                                {/* Online users section */}
+                                {onlineUsers.length > 0 && (
+                                    <>
+                                        <OnlineSection>
+                                            <OnlineSectionTitle>Online Now</OnlineSectionTitle>
+                                        </OnlineSection>
+                                        {onlineUsers.map((otherUser) => (
+                                            <OnlineUser
+                                                key={otherUser.uid}
+                                                onClick={() => handleStartDM(otherUser)}
+                                                title={`Start conversation with ${otherUser.displayName}`}
+                                            >
+                                                {otherUser.photoURL ? (
+                                                    <UserAvatar src={otherUser.photoURL} />
+                                                ) : (
+                                                    <UserAvatarPlaceholder>
+                                                        <PersonIcon />
+                                                    </UserAvatarPlaceholder>
+                                                )}
+                                                <OnlineIndicator $isOnline={true} />
+                                                <UserName>{otherUser.displayName}</UserName>
+                                                <OnlineText>online</OnlineText>
+                                            </OnlineUser>
+                                        ))}
+                                    </>
+                                )}
+
+                                {/* Offline users section */}
+                                {offlineUsers.length > 0 && (
+                                    <>
+                                        <OnlineSection>
+                                            <OnlineSectionTitle>Offline</OnlineSectionTitle>
+                                        </OnlineSection>
+                                        {offlineUsers.map((otherUser) => (
+                                            <OnlineUser
+                                                key={otherUser.uid}
+                                                onClick={() => handleStartDM(otherUser)}
+                                                title={`Start conversation with ${otherUser.displayName}`}
+                                                $isOffline
+                                            >
+                                                {otherUser.photoURL ? (
+                                                    <UserAvatar src={otherUser.photoURL} />
+                                                ) : (
+                                                    <UserAvatarPlaceholder>
+                                                        <PersonIcon />
+                                                    </UserAvatarPlaceholder>
+                                                )}
+                                                <OnlineIndicator $isOnline={false} />
+                                                <UserName>{otherUser.displayName}</UserName>
+                                            </OnlineUser>
+                                        ))}
+                                    </>
+                                )}
 
                                 {otherUsers.length === 0 && (
                                     <NoUsersText>No other users yet</NoUsersText>
@@ -451,6 +487,16 @@ const ChannelCount = styled.span`
     font-size: 0.7rem;
 `;
 
+const OnlineBadge = styled.span`
+    margin-left: auto;
+    padding: 2px 8px;
+    background: rgba(59, 165, 92, 0.15);
+    color: var(--accent-success);
+    border-radius: var(--radius-full);
+    font-size: 0.7rem;
+    font-weight: 500;
+`;
+
 const ChannelList = styled.div`
     display: flex;
     flex-direction: column;
@@ -464,7 +510,20 @@ const OnlineUsers = styled.div`
     padding: var(--spacing-sm) 0;
 `;
 
-const OnlineUser = styled.div`
+const OnlineSection = styled.div`
+    padding: var(--spacing-xs) var(--spacing-md);
+    margin-top: var(--spacing-sm);
+`;
+
+const OnlineSectionTitle = styled.span`
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+`;
+
+const OnlineUser = styled.div<{ $isOffline?: boolean }>`
     display: flex;
     align-items: center;
     gap: var(--spacing-sm);
@@ -475,10 +534,12 @@ const OnlineUser = styled.div`
     cursor: pointer;
     transition: all var(--transition-fast);
     position: relative;
+    opacity: ${({ $isOffline }) => $isOffline ? 0.6 : 1};
 
     &:hover {
         background: var(--glass-bg-hover);
         color: var(--text-primary);
+        opacity: 1;
     }
 `;
 

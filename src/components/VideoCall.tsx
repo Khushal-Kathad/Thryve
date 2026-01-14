@@ -35,19 +35,33 @@ const VideoCall = ({ userId }: VideoCallProps) => {
     const [callDuration, setCallDuration] = useState(0);
     const [isConnecting, setIsConnecting] = useState(true);
     const [remoteUsersList, setRemoteUsersList] = useState<IAgoraRTCRemoteUser[]>([]);
+    const [hasLocalVideo, setHasLocalVideo] = useState(false);
+    const [hasLocalAudio, setHasLocalAudio] = useState(false);
+    const initializationRef = useRef<boolean>(false);
 
     // Initialize call
     useEffect(() => {
         if (!currentCall) return;
 
+        // Prevent double initialization from React Strict Mode
+        if (initializationRef.current) {
+            console.log('Call already initializing, skipping...');
+            return;
+        }
+        initializationRef.current = true;
+
+        let isMounted = true;
+
         const initializeCall = async () => {
             try {
                 setIsConnecting(true);
+                console.log('Initializing call:', currentCall.id, 'type:', currentCall.callType);
 
                 // Initialize Agora with event handlers
                 await agoraService.initialize({
                     onUserJoined: (user) => {
                         console.log('Remote user joined:', user.uid);
+                        if (!isMounted) return;
                         setRemoteUsersList(prev => {
                             if (prev.find(u => u.uid === user.uid)) return prev;
                             return [...prev, user];
@@ -55,11 +69,13 @@ const VideoCall = ({ userId }: VideoCallProps) => {
                     },
                     onUserLeft: (user) => {
                         console.log('Remote user left:', user.uid);
+                        if (!isMounted) return;
                         setRemoteUsersList(prev => prev.filter(u => u.uid !== user.uid));
                         remoteVideoRefs.current.delete(String(user.uid));
                     },
                     onUserPublished: async (user, mediaType) => {
                         console.log('Remote user published:', user.uid, mediaType);
+                        if (!isMounted) return;
 
                         // Add user to list if not already there
                         setRemoteUsersList(prev => {
@@ -70,6 +86,7 @@ const VideoCall = ({ userId }: VideoCallProps) => {
                         if (mediaType === 'video') {
                             // Play video after a short delay to ensure DOM is ready
                             setTimeout(() => {
+                                if (!isMounted) return;
                                 const containerId = `remote-video-${user.uid}`;
                                 const container = document.getElementById(containerId);
                                 if (container) {
@@ -84,24 +101,71 @@ const VideoCall = ({ userId }: VideoCallProps) => {
                     onUserUnpublished: (user, mediaType) => {
                         console.log('Remote user unpublished:', user.uid, mediaType);
                     },
+                    onConnectionStateChange: (state) => {
+                        console.log('Connection state changed:', state);
+                    },
                 });
 
-                // Join the Agora channel
-                await agoraService.joinChannel(currentCall.channelName, userId);
+                // Join the Agora channel - this returns true if successful
+                const joinSuccess = await agoraService.joinChannel(currentCall.channelName, userId);
 
-                // Create and publish local tracks
-                await agoraService.createLocalTracks(currentCall.callType === 'video');
-                await agoraService.publishTracks();
-
-                // Play local video
-                if (localVideoRef.current && currentCall.callType === 'video') {
-                    agoraService.playLocalVideo(localVideoRef.current.id);
+                if (!joinSuccess) {
+                    console.error('Failed to join Agora channel');
+                    if (isMounted) {
+                        setIsConnecting(false);
+                    }
+                    return;
                 }
 
-                setIsConnecting(false);
+                if (!isMounted) return;
+
+                // Create local tracks AFTER successful join
+                console.log('Creating local tracks, video enabled:', currentCall.callType === 'video');
+                await agoraService.createLocalTracks(currentCall.callType === 'video');
+
+                // Check what tracks were created
+                const videoTrack = agoraService.getLocalVideoTrack();
+                const audioTrack = agoraService.getLocalAudioTrack();
+
+                if (isMounted) {
+                    setHasLocalVideo(!!videoTrack);
+                    setHasLocalAudio(!!audioTrack);
+                    console.log('Local tracks status - Video:', !!videoTrack, 'Audio:', !!audioTrack);
+                }
+
+                // Only publish if still connected
+                if (agoraService.isConnected()) {
+                    console.log('Publishing local tracks...');
+                    await agoraService.publishTracks();
+                    console.log('Tracks published successfully');
+                } else {
+                    console.warn('Not connected, skipping track publish');
+                }
+
+                // Play local video if video call - add delay to ensure DOM is ready
+                if (isMounted && currentCall.callType === 'video' && videoTrack) {
+                    // Wait for DOM to be ready
+                    setTimeout(() => {
+                        if (!isMounted) return;
+                        const container = document.getElementById('local-video');
+                        if (container) {
+                            console.log('Playing local video in container');
+                            agoraService.playLocalVideo('local-video');
+                        } else {
+                            console.warn('Local video container not found');
+                        }
+                    }, 200);
+                }
+
+                if (isMounted) {
+                    setIsConnecting(false);
+                }
             } catch (error) {
                 console.error('Error initializing call:', error);
-                handleEndCall();
+                if (isMounted) {
+                    setIsConnecting(false);
+                    handleEndCall();
+                }
             }
         };
 
@@ -109,6 +173,8 @@ const VideoCall = ({ userId }: VideoCallProps) => {
 
         // Cleanup on unmount
         return () => {
+            isMounted = false;
+            initializationRef.current = false;
             agoraService.leaveChannel();
         };
     }, [currentCall, userId]);
@@ -124,6 +190,41 @@ const VideoCall = ({ userId }: VideoCallProps) => {
         return () => clearInterval(timer);
     }, [currentCall, isConnecting]);
 
+    // Listen for call status changes (to handle when creator ends the call)
+    useEffect(() => {
+        if (!currentCall) return;
+
+        const unsubscribe = callService.listenForCallChanges(currentCall.id, async (updatedCall) => {
+            // If call was ended by creator, end for everyone
+            if (updatedCall.status === 'ended') {
+                console.log('Call ended by creator, leaving...');
+                await agoraService.leaveChannel();
+                dispatch(endCall());
+            }
+        });
+
+        return () => {
+            unsubscribe();
+        };
+    }, [currentCall, dispatch]);
+
+    // Play local video when track becomes available
+    useEffect(() => {
+        if (!currentCall || currentCall.callType !== 'video' || !hasLocalVideo) return;
+
+        const playVideo = () => {
+            const container = document.getElementById('local-video');
+            if (container && agoraService.getLocalVideoTrack()) {
+                console.log('Playing local video (from effect)');
+                agoraService.playLocalVideo('local-video');
+            }
+        };
+
+        // Small delay to ensure everything is ready
+        const timer = setTimeout(playVideo, 300);
+        return () => clearTimeout(timer);
+    }, [currentCall, hasLocalVideo]);
+
     // Handle mute toggle
     useEffect(() => {
         agoraService.toggleAudio(!isMuted);
@@ -134,18 +235,35 @@ const VideoCall = ({ userId }: VideoCallProps) => {
         agoraService.toggleVideo(isVideoEnabled);
     }, [isVideoEnabled]);
 
+    // Leave the call (for participants) or end it (for 1-to-1 calls)
     const handleEndCall = useCallback(async () => {
         if (currentCall) {
             try {
                 if (currentCall.isGroupCall) {
                     // For group calls, leave the call (don't end for everyone)
+                    console.log('Leaving group call:', currentCall.id);
                     await callService.leaveGroupCall(currentCall.id, userId);
                 } else {
                     // For 1-to-1 calls, end the call
+                    console.log('Ending direct call:', currentCall.id);
                     await callService.endCall(currentCall.id);
                 }
             } catch (error) {
                 console.error('Error ending call in Firestore:', error);
+            }
+        }
+        await agoraService.leaveChannel();
+        dispatch(endCall());
+    }, [currentCall, userId, dispatch]);
+
+    // End the group call for everyone (only callable by the call creator)
+    const handleEndGroupCallForEveryone = useCallback(async () => {
+        if (currentCall && currentCall.isGroupCall && currentCall.callerId === userId) {
+            try {
+                console.log('Ending group call for everyone:', currentCall.id);
+                await callService.endCall(currentCall.id);
+            } catch (error) {
+                console.error('Error ending group call:', error);
             }
         }
         await agoraService.leaveChannel();
@@ -266,9 +384,9 @@ const VideoCall = ({ userId }: VideoCallProps) => {
                     </RemoteVideoContainer>
                     <LocalVideoContainer>
                         <LocalVideo id="local-video" ref={localVideoRef} />
-                        {!isVideoEnabled && (
+                        {(!isVideoEnabled || !hasLocalVideo) && (
                             <VideoOffOverlay>
-                                <span>Camera Off</span>
+                                <span>{!hasLocalVideo ? 'No Camera' : 'Camera Off'}</span>
                             </VideoOffOverlay>
                         )}
                     </LocalVideoContainer>
@@ -320,9 +438,12 @@ const VideoCall = ({ userId }: VideoCallProps) => {
                 isMuted={isMuted}
                 isVideoEnabled={isVideoEnabled}
                 isVideoCall={isVideoCall}
+                isGroupCall={isGroupCall}
+                isCallCreator={currentCall.callerId === userId}
                 onToggleMute={handleToggleMute}
                 onToggleVideo={handleToggleVideo}
                 onEndCall={handleEndCall}
+                onEndForEveryone={handleEndGroupCallForEveryone}
                 onMinimize={handleToggleMinimize}
             />
         </CallContainer>
@@ -364,11 +485,22 @@ const RemoteVideoContainer = styled.div`
 const RemoteVideo = styled.div`
     width: 100%;
     height: 100%;
+    position: relative;
+    background: #1a1a2e;
 
     video {
         width: 100%;
         height: 100%;
         object-fit: cover;
+        position: absolute;
+        top: 0;
+        left: 0;
+    }
+
+    /* Agora SDK creates a div wrapper for the video */
+    & > div {
+        width: 100% !important;
+        height: 100% !important;
     }
 `;
 
@@ -421,12 +553,22 @@ const LocalVideo = styled.div`
     width: 100%;
     height: 100%;
     background: #1a1a2e;
+    position: relative;
 
     video {
         width: 100%;
         height: 100%;
         object-fit: cover;
         transform: scaleX(-1); /* Mirror local video */
+        position: absolute;
+        top: 0;
+        left: 0;
+    }
+
+    /* Agora SDK creates a div wrapper for the video */
+    & > div {
+        width: 100% !important;
+        height: 100% !important;
     }
 `;
 
@@ -442,6 +584,7 @@ const VideoOffOverlay = styled.div`
     justify-content: center;
     color: var(--text-muted);
     font-size: 0.85rem;
+    z-index: 10;
 `;
 
 const AudioCallContainer = styled.div`
