@@ -74,6 +74,7 @@ class SyncService {
                         timestamp: Timestamp.fromMillis(message.clientTimestamp),
                         users: message.users,
                         userImage: message.userImage,
+                        userId: message.userId,
                         ...(imageUrl && { imageUrl }),
                     });
 

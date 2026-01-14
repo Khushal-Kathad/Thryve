@@ -126,6 +126,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ channelName, channelId, chatRef, 
             message: string;
             users: string;
             userImage: string;
+            userId: string;
             imageData: ImageData | null;
             replyTo?: ReplyData;
         } = {
@@ -133,6 +134,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ channelName, channelId, chatRef, 
             message: input.trim(),
             users: user.displayName || 'Anonymous',
             userImage: user.photoURL || '',
+            userId: user.uid,
             imageData: null,
         };
 
@@ -194,6 +196,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ channelName, channelId, chatRef, 
                     timestamp: Timestamp.fromDate(new Date()),
                     users: messageData.users,
                     userImage: messageData.userImage,
+                    userId: user.uid,
                     ...(imageUrl && { imageUrl }),
                     ...(messageData.replyTo && { replyTo: messageData.replyTo }),
                 });

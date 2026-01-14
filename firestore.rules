@@ -27,6 +27,12 @@ service cloud.firestore {
         allow delete: if request.auth != null &&
           resource.data.userId == request.auth.uid;
       }
+
+      // Typing subcollection for real-time typing indicators
+      match /typing/{odUserId} {
+        allow read: if request.auth != null;
+        allow write: if request.auth != null && request.auth.uid == odUserId;
+      }
     }
 
     // Calls collection
