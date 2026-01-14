@@ -1,4 +1,4 @@
-import React, { useState, useRef, ChangeEvent, FormEvent, KeyboardEvent, RefObject } from 'react';
+import React, { useState, useRef, useEffect, useCallback, ChangeEvent, FormEvent, KeyboardEvent, RefObject } from 'react';
 import styled, { keyframes } from 'styled-components';
 import SendIcon from '@mui/icons-material/Send';
 import EmojiEmotionsOutlinedIcon from '@mui/icons-material/EmojiEmotionsOutlined';
@@ -13,6 +13,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import { selectIsOnline, setPendingCount } from '../features/appSlice';
 import { uploadToCloudinary } from '../cloudinary';
 import { offlineService } from '../services/offlineService';
+import { typingService } from '../services/typingService';
 
 const EMOJI_LIST = ['😀', '😂', '😍', '🥰', '😎', '🤔', '👍', '👎', '❤️', '🔥', '✨', '🎉', '💯', '🙌', '👏', '🤝'];
 
@@ -41,6 +42,28 @@ const ChatInput: React.FC<ChatInputProps> = ({ channelName, channelId, chatRef, 
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [uploading, setUploading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // Handle typing indicator
+    const handleTyping = useCallback(() => {
+        if (user && channelId && isOnline) {
+            typingService.setTyping(channelId, user.uid, user.displayName || 'Anonymous');
+        }
+    }, [user, channelId, isOnline]);
+
+    // Clear typing on unmount or channel change
+    useEffect(() => {
+        return () => {
+            if (user && channelId) {
+                typingService.clearTyping(channelId, user.uid);
+            }
+        };
+    }, [user, channelId]);
+
+    // Handle input change with typing indicator
+    const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
+        setInput(e.target.value);
+        handleTyping();
+    };
 
     const handleImageSelect = (e: ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -107,6 +130,11 @@ const ChatInput: React.FC<ChatInputProps> = ({ channelName, channelId, chatRef, 
         setInput('');
         removeImage();
         setShowEmoji(false);
+
+        // Clear typing indicator
+        if (user && channelId) {
+            typingService.clearTyping(channelId, user.uid);
+        }
 
         if (!isOnline) {
             // Store in offline queue
@@ -203,7 +231,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ channelName, channelId, chatRef, 
 
                     <StyledInput
                         value={input}
-                        onChange={(e) => setInput(e.target.value)}
+                        onChange={handleInputChange}
                         onKeyDown={handleKeyDown}
                         placeholder={`Message #${channelName || 'channel'}`}
                         disabled={uploading}
