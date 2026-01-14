@@ -130,26 +130,57 @@ const AppContent: React.FC = () => {
     useEffect(() => {
         if (!user) return;
 
-        // Save user to users collection
-        userService.saveUser({
-            uid: user.uid,
-            displayName: user.displayName,
-            email: user.email,
-            photoURL: user.photoURL,
-        });
+        let isMounted = true;
+
+        // Save user to users collection with proper error handling
+        const initializeUser = async () => {
+            try {
+                const success = await userService.saveUser({
+                    uid: user.uid,
+                    displayName: user.displayName,
+                    email: user.email,
+                    photoURL: user.photoURL,
+                });
+
+                if (isMounted && success) {
+                    console.log('User initialized successfully:', user.displayName);
+                } else if (isMounted && !success) {
+                    console.error('Failed to save user data');
+                    showToast('Failed to sync user data', 'error');
+                }
+            } catch (error) {
+                console.error('Error initializing user:', error);
+                if (isMounted) {
+                    showToast('Failed to sync user data', 'error');
+                }
+            }
+        };
+
+        initializeUser();
 
         // Set user offline when they leave
         const handleBeforeUnload = () => {
             userService.setUserOnline(user.uid, false);
         };
 
+        // Handle visibility change (tab switch, minimize)
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                userService.setUserOnline(user.uid, true);
+            }
+        };
+
         window.addEventListener('beforeunload', handleBeforeUnload);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
 
         return () => {
+            isMounted = false;
             window.removeEventListener('beforeunload', handleBeforeUnload);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
             userService.setUserOnline(user.uid, false);
+            userService.cleanup();
         };
-    }, [user]);
+    }, [user, showToast]);
 
     // Listen for incoming calls when user is authenticated
     useEffect(() => {
