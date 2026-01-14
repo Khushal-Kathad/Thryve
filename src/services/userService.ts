@@ -13,7 +13,45 @@ import {
     serverTimestamp,
     Unsubscribe,
 } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db, reconnectFirestore } from '../firebase';
+
+// Helper function to extract name from email
+const getNameFromEmail = (email: string | null): string => {
+    if (!email) return 'Anonymous';
+    const namePart = email.split('@')[0];
+    // Convert email prefix to readable name (e.g., john.doe -> John Doe)
+    return namePart
+        .replace(/[._-]/g, ' ')
+        .split(' ')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ');
+};
+
+// Retry wrapper for Firestore operations
+const withRetry = async <T>(
+    operation: () => Promise<T>,
+    maxRetries: number = 3,
+    delay: number = 1000
+): Promise<T> => {
+    let lastError: any;
+    for (let i = 0; i < maxRetries; i++) {
+        try {
+            return await operation();
+        } catch (error: any) {
+            lastError = error;
+            console.warn(`Operation failed (attempt ${i + 1}/${maxRetries}):`, error.message);
+
+            if (i < maxRetries - 1) {
+                // Try to reconnect Firestore before retry
+                if (error.code === 'unavailable' || error.message?.includes('Fetch failed')) {
+                    await reconnectFirestore();
+                }
+                await new Promise(resolve => setTimeout(resolve, delay * (i + 1)));
+            }
+        }
+    }
+    throw lastError;
+};
 
 export interface AppUser {
     uid: string;
@@ -40,10 +78,13 @@ class UserService {
         try {
             const userRef = doc(db, 'users', user.uid);
 
+            // Get display name - prefer displayName, fall back to email-derived name
+            const displayName = user.displayName?.trim() || getNameFromEmail(user.email);
+
             // Always save user data with merge to update existing or create new
             const userData: Partial<AppUser> = {
                 uid: user.uid,
-                displayName: user.displayName || 'Anonymous',
+                displayName: displayName,
                 email: user.email || '',
                 photoURL: user.photoURL || '',
                 lastSeen: Date.now(),
@@ -51,19 +92,21 @@ class UserService {
             };
 
             // Check if user exists to set createdAt only for new users
+            let isNewUser = true;
             try {
-                const userDoc = await getDoc(userRef);
-                if (!userDoc.exists()) {
-                    userData.createdAt = Date.now();
-                }
+                const userDoc = await withRetry(() => getDoc(userRef), 2, 500);
+                isNewUser = !userDoc.exists();
             } catch (readError) {
-                // If we can't read, still try to save with createdAt
-                userData.createdAt = Date.now();
-                console.warn('Could not check if user exists, setting createdAt:', readError);
+                console.warn('Could not check if user exists:', readError);
             }
 
-            await setDoc(userRef, userData, { merge: true });
-            console.log('User saved successfully:', user.uid, user.displayName);
+            if (isNewUser) {
+                userData.createdAt = Date.now();
+            }
+
+            // Save with retry logic
+            await withRetry(() => setDoc(userRef, userData, { merge: true }));
+            console.log('User saved successfully:', user.uid, displayName);
 
             // Store current user ID and start heartbeat
             this.currentUserId = user.uid;
@@ -104,11 +147,11 @@ class UserService {
     async setUserOnline(uid: string, isOnline: boolean): Promise<void> {
         try {
             const userRef = doc(db, 'users', uid);
-            // Use setDoc with merge instead of updateDoc to handle non-existent docs
-            await setDoc(userRef, {
+            // Use setDoc with merge and retry for resilience
+            await withRetry(() => setDoc(userRef, {
                 isOnline,
                 lastSeen: Date.now(),
-            }, { merge: true });
+            }, { merge: true }), 2, 500);
         } catch (error) {
             console.error('Error setting user online status:', error);
         }

@@ -115,7 +115,7 @@ const Header: React.FC<HeaderProps> = ({ onSearch, onMenuClick, isSidebarOpen })
                             src={user?.photoURL || ''}
                         />
                         <UserInfo>
-                            <UserName>{user?.displayName?.split(' ')[0] || 'User'}</UserName>
+                            <UserName>{user?.displayName?.split(' ')[0] || user?.email?.split('@')[0] || 'User'}</UserName>
                             <UserStatus>
                                 <StatusDot $isOnline={isOnline} />
                                 {isOnline ? 'Online' : 'Offline'}

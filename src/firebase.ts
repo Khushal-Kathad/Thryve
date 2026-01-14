@@ -1,7 +1,13 @@
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
-import { initializeFirestore, persistentLocalCache, persistentSingleTabManager } from "firebase/firestore";
+import {
+    initializeFirestore,
+    persistentLocalCache,
+    persistentSingleTabManager,
+    enableNetwork,
+    disableNetwork
+} from "firebase/firestore";
 
 const firebaseConfig = {
     apiKey: "AIzaSyAgogipg4NAwS2TQ351jjvypYLOdoG5iRM",
@@ -15,15 +21,30 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
-// Initialize Firestore with persistent cache and long polling to avoid QUIC errors
+// Initialize Firestore with persistent cache
+// Using long polling to avoid WebChannel/QUIC errors on some networks
 const db = initializeFirestore(app, {
     localCache: persistentLocalCache({
-        tabManager: persistentSingleTabManager({ forceOwnership: true })
+        tabManager: persistentSingleTabManager({ forceOwnership: false })
     }),
-    experimentalForceLongPolling: true, // Avoids QUIC protocol errors
+    experimentalForceLongPolling: true,
+    experimentalAutoDetectLongPolling: false,
 });
 
 const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
+
+// Helper to reconnect Firestore if connection drops
+export const reconnectFirestore = async () => {
+    try {
+        await disableNetwork(db);
+        await enableNetwork(db);
+        console.log('Firestore reconnected');
+        return true;
+    } catch (error) {
+        console.error('Failed to reconnect Firestore:', error);
+        return false;
+    }
+};
 
 export { auth, provider, db };
