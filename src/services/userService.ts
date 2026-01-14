@@ -118,12 +118,27 @@ class UserService {
         return null;
     }
 
+    // Listen for a specific user's online status
+    listenForUserStatus(uid: string, onStatusChange: (isOnline: boolean) => void): Unsubscribe {
+        const userRef = doc(db, 'users', uid);
+        return onSnapshot(userRef, (snapshot) => {
+            if (snapshot.exists()) {
+                const data = snapshot.data();
+                onStatusChange(data.isOnline ?? false);
+            } else {
+                onStatusChange(false);
+            }
+        });
+    }
+
     // Create or get DM room between two users
     async getOrCreateDMRoom(
         currentUserId: string,
         otherUserId: string,
         currentUserName: string,
-        otherUserName: string
+        otherUserName: string,
+        currentUserPhoto?: string,
+        otherUserPhoto?: string
     ): Promise<string> {
         // DM room ID is a combination of both user IDs (sorted for consistency)
         const sortedIds = [currentUserId, otherUserId].sort();
@@ -137,10 +152,15 @@ class UserService {
             await setDoc(roomRef, {
                 name: `${currentUserName} & ${otherUserName}`,
                 isDM: true,
+                participants: [currentUserId, otherUserId],
                 members: [currentUserId, otherUserId],
                 memberNames: {
                     [currentUserId]: currentUserName,
                     [otherUserId]: otherUserName,
+                },
+                participantPhotos: {
+                    [currentUserId]: currentUserPhoto || '',
+                    [otherUserId]: otherUserPhoto || '',
                 },
                 createdAt: Date.now(),
                 createdBy: currentUserId,

@@ -5,8 +5,9 @@ import EmojiEmotionsOutlinedIcon from '@mui/icons-material/EmojiEmotionsOutlined
 import ImageOutlinedIcon from '@mui/icons-material/ImageOutlined';
 import CloseIcon from '@mui/icons-material/Close';
 import CloudOffIcon from '@mui/icons-material/CloudOff';
-import AttachFileIcon from '@mui/icons-material/AttachFile';
-import MicNoneIcon from '@mui/icons-material/MicNone';
+import ReplyIcon from '@mui/icons-material/Reply';
+import MicIcon from '@mui/icons-material/Mic';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { db } from '../firebase';
 import { collection, doc, setDoc, Timestamp } from 'firebase/firestore';
 import { useAuthState } from 'react-firebase-hooks/auth';
@@ -19,11 +20,20 @@ import { typingService } from '../services/typingService';
 
 const EMOJI_LIST = ['😀', '😂', '😍', '🥰', '😎', '🤔', '👍', '👎', '❤️', '🔥', '✨', '🎉', '💯', '🙌', '👏', '🤝'];
 
+export interface ReplyData {
+    id: string;
+    message: string;
+    users: string;
+    imageUrl?: string;
+}
+
 interface ChatInputProps {
     channelName?: string;
     channelId: string;
     chatRef: RefObject<HTMLDivElement | null>;
     onPendingUpdate?: () => void;
+    replyTo?: ReplyData | null;
+    onCancelReply?: () => void;
 }
 
 interface ImageData {
@@ -32,7 +42,7 @@ interface ImageData {
     fileName: string;
 }
 
-const ChatInput: React.FC<ChatInputProps> = ({ channelName, channelId, chatRef, onPendingUpdate }) => {
+const ChatInput: React.FC<ChatInputProps> = ({ channelName, channelId, chatRef, onPendingUpdate, replyTo, onCancelReply }) => {
     const auth = getAuth();
     const [user] = useAuthState(auth);
     const dispatch = useDispatch();
@@ -44,6 +54,9 @@ const ChatInput: React.FC<ChatInputProps> = ({ channelName, channelId, chatRef, 
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [uploading, setUploading] = useState(false);
     const [isFocused, setIsFocused] = useState(false);
+    const [isRecording, setIsRecording] = useState(false);
+    const [recordingTime, setRecordingTime] = useState(0);
+    const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
@@ -114,6 +127,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ channelName, channelId, chatRef, 
             users: string;
             userImage: string;
             imageData: ImageData | null;
+            replyTo?: ReplyData;
         } = {
             roomId: channelId,
             message: input.trim(),
@@ -121,6 +135,11 @@ const ChatInput: React.FC<ChatInputProps> = ({ channelName, channelId, chatRef, 
             userImage: user.photoURL || '',
             imageData: null,
         };
+
+        // Include reply data if replying
+        if (replyTo) {
+            messageData.replyTo = replyTo;
+        }
 
         // Handle image - convert to base64 for offline storage
         if (imageFile && imagePreview) {
@@ -135,6 +154,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ channelName, channelId, chatRef, 
         setInput('');
         removeImage();
         setShowEmoji(false);
+        onCancelReply?.();
 
         // Clear typing indicator
         if (user && channelId) {
@@ -175,6 +195,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ channelName, channelId, chatRef, 
                     users: messageData.users,
                     userImage: messageData.userImage,
                     ...(imageUrl && { imageUrl }),
+                    ...(messageData.replyTo && { replyTo: messageData.replyTo }),
                 });
             } catch (error) {
                 // Failed - add to offline queue
@@ -203,6 +224,50 @@ const ChatInput: React.FC<ChatInputProps> = ({ channelName, channelId, chatRef, 
         }
     };
 
+    // Voice recording handlers (placeholder functionality)
+    const startRecording = () => {
+        setIsRecording(true);
+        setRecordingTime(0);
+        recordingIntervalRef.current = setInterval(() => {
+            setRecordingTime(prev => prev + 1);
+        }, 1000);
+    };
+
+    const stopRecording = () => {
+        setIsRecording(false);
+        setRecordingTime(0);
+        if (recordingIntervalRef.current) {
+            clearInterval(recordingIntervalRef.current);
+            recordingIntervalRef.current = null;
+        }
+        // Placeholder: In a real implementation, this would send the audio
+        // For now, just show a toast or do nothing
+    };
+
+    const cancelRecording = () => {
+        setIsRecording(false);
+        setRecordingTime(0);
+        if (recordingIntervalRef.current) {
+            clearInterval(recordingIntervalRef.current);
+            recordingIntervalRef.current = null;
+        }
+    };
+
+    const formatRecordingTime = (seconds: number) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
+    };
+
+    // Cleanup interval on unmount
+    useEffect(() => {
+        return () => {
+            if (recordingIntervalRef.current) {
+                clearInterval(recordingIntervalRef.current);
+            }
+        };
+    }, []);
+
     const hasContent = !!(input.trim() || imageFile);
 
     return (
@@ -215,6 +280,31 @@ const ChatInput: React.FC<ChatInputProps> = ({ channelName, channelId, chatRef, 
             )}
 
             <InputContainer $isOffline={!isOnline} $isFocused={isFocused}>
+                {/* Reply Preview */}
+                {replyTo && (
+                    <ReplyPreviewContainer>
+                        <ReplyPreviewBar />
+                        <ReplyPreviewContent>
+                            <ReplyPreviewIcon>
+                                <ReplyIcon />
+                            </ReplyPreviewIcon>
+                            <ReplyPreviewText>
+                                <ReplyPreviewUser>Replying to {replyTo.users}</ReplyPreviewUser>
+                                <ReplyPreviewMessage>
+                                    {replyTo.imageUrl ? '📷 Photo' : replyTo.message.slice(0, 50)}
+                                    {replyTo.message.length > 50 && '...'}
+                                </ReplyPreviewMessage>
+                            </ReplyPreviewText>
+                            {replyTo.imageUrl && (
+                                <ReplyPreviewImage src={replyTo.imageUrl} alt="" />
+                            )}
+                        </ReplyPreviewContent>
+                        <ReplyPreviewClose onClick={onCancelReply} title="Cancel reply">
+                            <CloseIcon />
+                        </ReplyPreviewClose>
+                    </ReplyPreviewContainer>
+                )}
+
                 {imagePreview && (
                     <ImagePreviewContainer>
                         <PreviewWrapper>
@@ -228,46 +318,88 @@ const ChatInput: React.FC<ChatInputProps> = ({ channelName, channelId, chatRef, 
                 )}
 
                 <InputRow>
-                    <ActionButtons>
-                        <ActionButton
-                            type="button"
-                            onClick={() => fileInputRef.current?.click()}
-                            title="Add image"
-                        >
-                            <ImageOutlinedIcon />
-                        </ActionButton>
-                        <ActionButton
-                            type="button"
-                            onClick={() => setShowEmoji(!showEmoji)}
-                            title="Add emoji"
-                            $isActive={showEmoji}
-                        >
-                            <EmojiEmotionsOutlinedIcon />
-                        </ActionButton>
-                    </ActionButtons>
+                    {isRecording ? (
+                        <>
+                            {/* Recording UI */}
+                            <RecordingContainer>
+                                <CancelRecordingButton onClick={cancelRecording} title="Cancel">
+                                    <DeleteOutlineIcon />
+                                </CancelRecordingButton>
+                                <RecordingIndicator>
+                                    <RecordingPulse />
+                                    <RecordingTime>{formatRecordingTime(recordingTime)}</RecordingTime>
+                                </RecordingIndicator>
+                                <RecordingWave>
+                                    <WaveBar style={{ animationDelay: '0s' }} />
+                                    <WaveBar style={{ animationDelay: '0.1s' }} />
+                                    <WaveBar style={{ animationDelay: '0.2s' }} />
+                                    <WaveBar style={{ animationDelay: '0.3s' }} />
+                                    <WaveBar style={{ animationDelay: '0.4s' }} />
+                                </RecordingWave>
+                            </RecordingContainer>
+                            <SendButton
+                                type="button"
+                                onClick={stopRecording}
+                                $hasContent={true}
+                                title="Send voice message"
+                            >
+                                <SendIcon />
+                            </SendButton>
+                        </>
+                    ) : (
+                        <>
+                            <ActionButtons>
+                                <ActionButton
+                                    type="button"
+                                    onClick={() => fileInputRef.current?.click()}
+                                    title="Add image"
+                                >
+                                    <ImageOutlinedIcon />
+                                </ActionButton>
+                                <ActionButton
+                                    type="button"
+                                    onClick={() => setShowEmoji(!showEmoji)}
+                                    title="Add emoji"
+                                    $isActive={showEmoji}
+                                >
+                                    <EmojiEmotionsOutlinedIcon />
+                                </ActionButton>
+                            </ActionButtons>
 
-                    <InputField>
-                        <StyledInput
-                            ref={inputRef}
-                            value={input}
-                            onChange={handleInputChange}
-                            onKeyDown={handleKeyDown}
-                            onFocus={() => setIsFocused(true)}
-                            onBlur={() => setIsFocused(false)}
-                            placeholder={`Message #${channelName || 'channel'}`}
-                            disabled={uploading}
-                        />
-                    </InputField>
+                            <InputField>
+                                <StyledInput
+                                    ref={inputRef}
+                                    value={input}
+                                    onChange={handleInputChange}
+                                    onKeyDown={handleKeyDown}
+                                    onFocus={() => setIsFocused(true)}
+                                    onBlur={() => setIsFocused(false)}
+                                    placeholder={`Message #${channelName || 'channel'}`}
+                                    disabled={uploading}
+                                />
+                            </InputField>
 
-                    <SendButton
-                        type="submit"
-                        onClick={sendMessage}
-                        disabled={!hasContent || uploading}
-                        $hasContent={hasContent}
-                        title="Send message"
-                    >
-                        {uploading ? <LoadingSpinner /> : <SendIcon />}
-                    </SendButton>
+                            {hasContent ? (
+                                <SendButton
+                                    type="submit"
+                                    onClick={sendMessage}
+                                    disabled={uploading}
+                                    $hasContent={hasContent}
+                                    title="Send message"
+                                >
+                                    {uploading ? <LoadingSpinner /> : <SendIcon />}
+                                </SendButton>
+                            ) : (
+                                <MicButton
+                                    type="button"
+                                    onClick={startRecording}
+                                    title="Hold to record voice message"
+                                >
+                                    <MicIcon />
+                                </MicButton>
+                            )}
+                        </>
+                    )}
                 </InputRow>
 
                 {showEmoji && (
@@ -666,4 +798,224 @@ const HintText = styled.span`
     @media (max-width: 480px) {
         display: none;
     }
+`;
+
+// Reply Preview Styles
+const ReplyPreviewContainer = styled.div`
+    display: flex;
+    align-items: stretch;
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--bg-tertiary);
+    border-bottom: 1px solid var(--border-light);
+    animation: ${slideDown} 0.2s ease-out;
+    gap: var(--spacing-sm);
+`;
+
+const ReplyPreviewBar = styled.div`
+    width: 4px;
+    background: var(--gradient-primary);
+    border-radius: 2px;
+    flex-shrink: 0;
+`;
+
+const ReplyPreviewContent = styled.div`
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    min-width: 0;
+`;
+
+const ReplyPreviewIcon = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-md);
+    background: var(--purple-50);
+    flex-shrink: 0;
+
+    svg {
+        font-size: 1rem;
+        color: var(--accent-primary);
+    }
+`;
+
+const ReplyPreviewText = styled.div`
+    flex: 1;
+    min-width: 0;
+`;
+
+const ReplyPreviewUser = styled.span`
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--accent-primary);
+    margin-bottom: 2px;
+`;
+
+const ReplyPreviewMessage = styled.span`
+    display: block;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+`;
+
+const ReplyPreviewImage = styled.img`
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-md);
+    object-fit: cover;
+    flex-shrink: 0;
+`;
+
+const ReplyPreviewClose = styled.button`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-full);
+    color: var(--text-muted);
+    transition: all var(--transition-fast);
+    flex-shrink: 0;
+
+    svg {
+        font-size: 1rem;
+    }
+
+    &:hover {
+        background: rgba(239, 68, 68, 0.1);
+        color: var(--accent-danger);
+    }
+`;
+
+// Voice Recording Styles
+const recordingPulse = keyframes`
+    0%, 100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.2);
+        opacity: 0.7;
+    }
+`;
+
+const waveAnimation = keyframes`
+    0%, 100% {
+        height: 8px;
+    }
+    50% {
+        height: 24px;
+    }
+`;
+
+const MicButton = styled.button`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius-lg);
+    background: var(--bg-tertiary);
+    color: var(--text-muted);
+    transition: all var(--transition-fast);
+    flex-shrink: 0;
+
+    svg {
+        font-size: 1.3rem;
+    }
+
+    &:hover {
+        background: var(--purple-50);
+        color: var(--accent-primary);
+    }
+
+    &:active {
+        background: var(--accent-primary);
+        color: white;
+        transform: scale(0.95);
+    }
+
+    @media (max-width: 480px) {
+        width: 40px;
+        height: 40px;
+
+        svg {
+            font-size: 1.2rem;
+        }
+    }
+`;
+
+const RecordingContainer = styled.div`
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    padding: 0 var(--spacing-sm);
+    animation: ${fadeIn} 0.2s ease-out;
+`;
+
+const CancelRecordingButton = styled.button`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-full);
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--accent-danger);
+    transition: all var(--transition-fast);
+
+    svg {
+        font-size: 1.2rem;
+    }
+
+    &:hover {
+        background: var(--accent-danger);
+        color: white;
+    }
+`;
+
+const RecordingIndicator = styled.div`
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+`;
+
+const RecordingPulse = styled.div`
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--accent-danger);
+    animation: ${recordingPulse} 1s ease-in-out infinite;
+`;
+
+const RecordingTime = styled.span`
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+    min-width: 45px;
+`;
+
+const RecordingWave = styled.div`
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    height: 32px;
+`;
+
+const WaveBar = styled.div`
+    width: 4px;
+    height: 16px;
+    border-radius: 2px;
+    background: var(--accent-primary);
+    animation: ${waveAnimation} 0.8s ease-in-out infinite;
 `;

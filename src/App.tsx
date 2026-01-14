@@ -1,4 +1,4 @@
-import React, { useEffect, lazy, Suspense, useState } from 'react';
+import React, { useEffect, lazy, Suspense, useState, useCallback } from 'react';
 import './App.css';
 import Header from './components/Header';
 import styled, { keyframes } from 'styled-components';
@@ -13,7 +13,7 @@ import { useNetworkStatus } from './hooks/useNetworkStatus';
 import { syncService } from './services/syncService';
 import { offlineService } from './services/offlineService';
 import { useDispatch, useSelector } from 'react-redux';
-import { setPendingCount, selectActivePanel, selectShowNewMessageModal } from './features/appSlice';
+import { setPendingCount, selectActivePanel, selectShowNewMessageModal, setActivePanel } from './features/appSlice';
 import { callService } from './services/callService';
 import { userService } from './services/userService';
 import {
@@ -27,6 +27,7 @@ import {
 import IncomingCallModal from './components/ui/IncomingCallModal';
 import NewMessageModal from './components/ui/NewMessageModal';
 import ErrorBoundary from './components/ErrorBoundary';
+import BottomNav, { NavTab } from './components/BottomNav';
 
 // Lazy load heavy components (VideoCall has ~4MB Agora SDK)
 const VideoCall = lazy(() => import('./components/VideoCall'));
@@ -48,6 +49,7 @@ const AppContent: React.FC = () => {
 
     // Mobile sidebar state
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [mobileTab, setMobileTab] = useState<NavTab>('chats');
 
     // Call state selectors
     const currentCall = useSelector(selectCurrentCall);
@@ -66,6 +68,21 @@ const AppContent: React.FC = () => {
     const handleCloseSidebar = () => {
         setIsSidebarOpen(false);
     };
+
+    // Handle mobile bottom nav tab changes
+    const handleMobileTabChange = useCallback((tab: NavTab) => {
+        setMobileTab(tab);
+        if (tab === 'chats' || tab === 'groups') {
+            setIsSidebarOpen(true);
+            dispatch(setActivePanel(null));
+        } else if (tab === 'calls') {
+            dispatch(setActivePanel('people'));
+            setIsSidebarOpen(false);
+        } else if (tab === 'profile') {
+            dispatch(setActivePanel('settings'));
+            setIsSidebarOpen(false);
+        }
+    }, [dispatch]);
 
     // Render the appropriate panel based on activePanel state
     const renderMainContent = () => {
@@ -240,6 +257,12 @@ const AppContent: React.FC = () => {
                             onReject={handleRejectCall}
                         />
                     )}
+
+                    {/* Mobile Bottom Navigation */}
+                    <BottomNav
+                        activeTab={mobileTab}
+                        onTabChange={handleMobileTabChange}
+                    />
                 </>
             )}
         </AppContainer>
@@ -308,6 +331,9 @@ const MainContent = styled.main`
 
     @media (max-width: 768px) {
         width: 100%;
+        /* Account for bottom nav height */
+        height: calc(100vh - var(--header-height) - 70px);
+        padding-bottom: env(safe-area-inset-bottom, 0);
     }
 `;
 
