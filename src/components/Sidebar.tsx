@@ -130,10 +130,10 @@ const Sidebar: React.FC = () => {
             dispatch(addVerifiedRoom({ roomId: newRef.id }));
             dispatch(enterRoom({ roomId: newRef.id }));
             dispatch(setShowCreateChannelModal(false));
-            showToast(`Channel "${name}" created successfully!`, 'success');
+            showToast(`Group "${name}" created successfully!`, 'success');
         } catch (error) {
-            console.error('Error creating channel:', error);
-            showToast('Failed to create channel. Please try again.', 'error');
+            console.error('Error creating group:', error);
+            showToast('Failed to create group. Please try again.', 'error');
         } finally {
             setIsCreating(false);
         }
@@ -203,36 +203,7 @@ const Sidebar: React.FC = () => {
 
                     <Divider />
 
-                    <ChannelSection>
-                        <SectionHeader>
-                            <ExpandMoreIcon />
-                            <span>Channels</span>
-                            <ChannelCount>{publicChannels.length}</ChannelCount>
-                        </SectionHeader>
-
-                        <ChannelList>
-                            <SidebarOption
-                                Icon={AddIcon}
-                                addChannelOption
-                                title="Add Channel"
-                            />
-                            {publicChannels.map((docItem) => (
-                                <SidebarOption
-                                    key={docItem.id}
-                                    id={docItem.id}
-                                    title={docItem.data().name}
-                                    hasPassword={!!docItem.data().passwordHash}
-                                    isPrivate={docItem.data().isPrivate}
-                                    createdBy={docItem.data().createdBy}
-                                    currentUserId={user?.uid}
-                                    members={docItem.data().members || []}
-                                />
-                            ))}
-                        </ChannelList>
-                    </ChannelSection>
-
-                    <Divider />
-
+                    {/* Direct Messages - First */}
                     <DirectMessages>
                         <SectionHeader onClick={() => setShowAllUsers(!showAllUsers)}>
                             <ExpandMoreIcon style={{ transform: showAllUsers ? 'rotate(0deg)' : 'rotate(-90deg)' }} />
@@ -309,6 +280,37 @@ const Sidebar: React.FC = () => {
                             </OnlineUsers>
                         )}
                     </DirectMessages>
+
+                    <Divider />
+
+                    {/* Groups - Second */}
+                    <GroupSection>
+                        <SectionHeader>
+                            <ExpandMoreIcon />
+                            <span>Groups</span>
+                            <GroupCount>{publicChannels.length}</GroupCount>
+                        </SectionHeader>
+
+                        <GroupList>
+                            <SidebarOption
+                                Icon={AddIcon}
+                                addChannelOption
+                                title="Add Group"
+                            />
+                            {publicChannels.map((docItem) => (
+                                <SidebarOption
+                                    key={docItem.id}
+                                    id={docItem.id}
+                                    title={docItem.data().name}
+                                    hasPassword={!!docItem.data().passwordHash}
+                                    isPrivate={docItem.data().isPrivate}
+                                    createdBy={docItem.data().createdBy}
+                                    currentUserId={user?.uid}
+                                    members={docItem.data().members || []}
+                                />
+                            ))}
+                        </GroupList>
+                    </GroupSection>
                 </SidebarContent>
 
                 <SidebarFooter>
@@ -452,7 +454,7 @@ const Divider = styled.hr`
     margin: var(--spacing-md) var(--spacing-lg);
 `;
 
-const ChannelSection = styled.div`
+const GroupSection = styled.div`
     padding: 0 var(--spacing-sm);
 `;
 
@@ -479,7 +481,7 @@ const SectionHeader = styled.div`
     }
 `;
 
-const ChannelCount = styled.span`
+const GroupCount = styled.span`
     margin-left: auto;
     padding: 2px 8px;
     background: var(--glass-bg);
@@ -497,7 +499,7 @@ const OnlineBadge = styled.span`
     font-weight: 500;
 `;
 
-const ChannelList = styled.div`
+const GroupList = styled.div`
     display: flex;
     flex-direction: column;
 `;

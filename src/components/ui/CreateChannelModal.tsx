@@ -58,11 +58,11 @@ const CreateChannelModal: React.FC<CreateChannelModalProps> = ({ isOpen, onClose
         const newErrors: FormErrors = {};
 
         if (!channelName.trim()) {
-            newErrors.channelName = 'Channel name is required';
+            newErrors.channelName = 'Group name is required';
         } else if (channelName.trim().length < 2) {
-            newErrors.channelName = 'Channel name must be at least 2 characters';
+            newErrors.channelName = 'Group name must be at least 2 characters';
         } else if (channelName.trim().length > 50) {
-            newErrors.channelName = 'Channel name must be less than 50 characters';
+            newErrors.channelName = 'Group name must be less than 50 characters';
         }
 
         if (enablePassword) {
@@ -106,7 +106,7 @@ const CreateChannelModal: React.FC<CreateChannelModalProps> = ({ isOpen, onClose
                 <ModalHeader>
                     <HeaderTitle>
                         <TagIcon />
-                        <span>Create Channel</span>
+                        <span>Create Group</span>
                     </HeaderTitle>
                     <CloseButton onClick={onClose} disabled={isLoading}>
                         <CloseIcon />
@@ -115,7 +115,7 @@ const CreateChannelModal: React.FC<CreateChannelModalProps> = ({ isOpen, onClose
 
                 <Form onSubmit={handleSubmit}>
                     <FormGroup>
-                        <Label>Channel Name</Label>
+                        <Label>Group Name</Label>
                         <InputWrapper $hasError={!!errors.channelName}>
                             <TagIcon />
                             <Input
@@ -156,7 +156,7 @@ const CreateChannelModal: React.FC<CreateChannelModalProps> = ({ isOpen, onClose
                                     <LockIcon />
                                     <Input
                                         type={showPassword ? 'text' : 'password'}
-                                        placeholder="Enter channel password"
+                                        placeholder="Enter group password"
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
                                         disabled={isLoading}
@@ -189,7 +189,7 @@ const CreateChannelModal: React.FC<CreateChannelModalProps> = ({ isOpen, onClose
                                     <LockIcon />
                                     <Input
                                         type={showConfirmPassword ? 'text' : 'password'}
-                                        placeholder="Confirm channel password"
+                                        placeholder="Confirm group password"
                                         value={confirmPassword}
                                         onChange={(e) => setConfirmPassword(e.target.value)}
                                         disabled={isLoading}
@@ -212,8 +212,8 @@ const CreateChannelModal: React.FC<CreateChannelModalProps> = ({ isOpen, onClose
                         {enablePassword ? <LockIcon /> : <LockOpenIcon />}
                         <span>
                             {enablePassword
-                                ? 'This channel will be password protected. Share the password with members you want to invite.'
-                                : 'This channel will be public. Anyone can join without a password.'}
+                                ? 'This group will be password protected. Share the password with members you want to invite.'
+                                : 'This group will be public. Anyone can join without a password.'}
                         </span>
                     </InfoBox>
 
@@ -222,7 +222,7 @@ const CreateChannelModal: React.FC<CreateChannelModalProps> = ({ isOpen, onClose
                             Cancel
                         </CancelButton>
                         <SubmitButton type="submit" disabled={isLoading}>
-                            {isLoading ? 'Creating...' : 'Create Channel'}
+                            {isLoading ? 'Creating...' : 'Create Group'}
                         </SubmitButton>
                     </ButtonGroup>
                 </Form>
