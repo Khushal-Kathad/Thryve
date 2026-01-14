@@ -27,6 +27,8 @@ export interface AppUser {
 
 class UserService {
     private usersUnsubscribe: Unsubscribe | null = null;
+    private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
+    private currentUserId: string | null = null;
 
     // Save or update user when they log in
     async saveUser(user: {
@@ -34,35 +36,82 @@ class UserService {
         displayName: string | null;
         email: string | null;
         photoURL: string | null;
-    }): Promise<void> {
-        const userRef = doc(db, 'users', user.uid);
-        const userDoc = await getDoc(userRef);
+    }): Promise<boolean> {
+        try {
+            const userRef = doc(db, 'users', user.uid);
 
-        const userData: Partial<AppUser> = {
-            uid: user.uid,
-            displayName: user.displayName || 'Anonymous',
-            email: user.email || '',
-            photoURL: user.photoURL || '',
-            lastSeen: Date.now(),
-            isOnline: true,
-        };
+            // Always save user data with merge to update existing or create new
+            const userData: Partial<AppUser> = {
+                uid: user.uid,
+                displayName: user.displayName || 'Anonymous',
+                email: user.email || '',
+                photoURL: user.photoURL || '',
+                lastSeen: Date.now(),
+                isOnline: true,
+            };
 
-        if (!userDoc.exists()) {
-            // New user - set createdAt
-            userData.createdAt = Date.now();
+            // Check if user exists to set createdAt only for new users
+            try {
+                const userDoc = await getDoc(userRef);
+                if (!userDoc.exists()) {
+                    userData.createdAt = Date.now();
+                }
+            } catch (readError) {
+                // If we can't read, still try to save with createdAt
+                userData.createdAt = Date.now();
+                console.warn('Could not check if user exists, setting createdAt:', readError);
+            }
+
+            await setDoc(userRef, userData, { merge: true });
+            console.log('User saved successfully:', user.uid, user.displayName);
+
+            // Store current user ID and start heartbeat
+            this.currentUserId = user.uid;
+            this.startHeartbeat(user.uid);
+
+            return true;
+        } catch (error) {
+            console.error('Error saving user:', error);
+            return false;
         }
+    }
 
-        await setDoc(userRef, userData, { merge: true });
-        console.log('User saved:', user.uid);
+    // Start periodic heartbeat to keep online status updated
+    startHeartbeat(uid: string): void {
+        // Clear any existing heartbeat
+        this.stopHeartbeat();
+
+        // Update online status every 2 minutes
+        this.heartbeatInterval = setInterval(async () => {
+            try {
+                await this.setUserOnline(uid, true);
+                console.log('Heartbeat: Online status updated');
+            } catch (error) {
+                console.error('Heartbeat failed:', error);
+            }
+        }, 2 * 60 * 1000); // Every 2 minutes
+    }
+
+    // Stop heartbeat
+    stopHeartbeat(): void {
+        if (this.heartbeatInterval) {
+            clearInterval(this.heartbeatInterval);
+            this.heartbeatInterval = null;
+        }
     }
 
     // Update user's online status
     async setUserOnline(uid: string, isOnline: boolean): Promise<void> {
-        const userRef = doc(db, 'users', uid);
-        await updateDoc(userRef, {
-            isOnline,
-            lastSeen: Date.now(),
-        });
+        try {
+            const userRef = doc(db, 'users', uid);
+            // Use setDoc with merge instead of updateDoc to handle non-existent docs
+            await setDoc(userRef, {
+                isOnline,
+                lastSeen: Date.now(),
+            }, { merge: true });
+        } catch (error) {
+            console.error('Error setting user online status:', error);
+        }
     }
 
     // Get all users
@@ -78,45 +127,55 @@ class UserService {
             this.usersUnsubscribe();
         }
 
-        const usersRef = collection(db, 'users');
-        // Get more users to ensure we capture all online users
-        const q = query(usersRef, limit(maxUsers));
+        try {
+            const usersRef = collection(db, 'users');
+            // Get more users to ensure we capture all online users
+            const q = query(usersRef, limit(maxUsers));
 
-        this.usersUnsubscribe = onSnapshot(q, (snapshot) => {
-            const users = snapshot.docs.map(doc => {
-                const data = doc.data();
-                // Check if user was active in the last 5 minutes for online status
-                const lastSeenTime = data.lastSeen || 0;
-                const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
-                const isRecentlyActive = lastSeenTime > fiveMinutesAgo;
+            this.usersUnsubscribe = onSnapshot(q, (snapshot) => {
+                console.log('Snapshot received, docs count:', snapshot.docs.length);
 
-                // Ensure all fields have default values for old users
-                return {
-                    uid: data.uid || doc.id,
-                    displayName: data.displayName || 'Unknown',
-                    email: data.email || '',
-                    photoURL: data.photoURL || '',
-                    lastSeen: lastSeenTime,
-                    // User is online if explicitly set OR was active recently
-                    isOnline: data.isOnline === true || isRecentlyActive,
-                    createdAt: data.createdAt || 0,
-                } as AppUser;
+                const users = snapshot.docs.map(doc => {
+                    const data = doc.data();
+                    // Check if user was active in the last 5 minutes for online status
+                    const lastSeenTime = data.lastSeen || 0;
+                    const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
+                    const isRecentlyActive = lastSeenTime > fiveMinutesAgo;
+
+                    // Ensure all fields have default values for old users
+                    return {
+                        uid: data.uid || doc.id,
+                        displayName: data.displayName || 'Unknown',
+                        email: data.email || '',
+                        photoURL: data.photoURL || '',
+                        lastSeen: lastSeenTime,
+                        // User is online if explicitly set OR was active recently
+                        isOnline: data.isOnline === true || isRecentlyActive,
+                        createdAt: data.createdAt || 0,
+                    } as AppUser;
+                });
+
+                // Sort by online status first, then by lastSeen (most recent first)
+                users.sort((a, b) => {
+                    if (a.isOnline && !b.isOnline) return -1;
+                    if (!a.isOnline && b.isOnline) return 1;
+                    return (b.lastSeen || 0) - (a.lastSeen || 0);
+                });
+
+                console.log('Users processed:', users.map(u => ({ name: u.displayName, online: u.isOnline })));
+                onUsersChange(users);
+            }, (error) => {
+                console.error('Error listening for users:', error);
+                // Still call with empty array so loading state ends
+                onUsersChange([]);
             });
 
-            // Sort by online status first, then by lastSeen (most recent first)
-            users.sort((a, b) => {
-                if (a.isOnline && !b.isOnline) return -1;
-                if (!a.isOnline && b.isOnline) return 1;
-                return (b.lastSeen || 0) - (a.lastSeen || 0);
-            });
-
-            onUsersChange(users);
-        }, (error) => {
-            console.error('Error listening for users:', error);
-            onUsersChange([]);
-        });
-
-        return this.usersUnsubscribe;
+            return this.usersUnsubscribe;
+        } catch (error) {
+            console.error('Error setting up user listener:', error);
+            // Return a no-op unsubscribe function
+            return () => {};
+        }
     }
 
     // Get user by ID
@@ -189,6 +248,18 @@ class UserService {
             this.usersUnsubscribe();
             this.usersUnsubscribe = null;
         }
+    }
+
+    // Full cleanup - call when user logs out
+    cleanup(): void {
+        this.stopListening();
+        this.stopHeartbeat();
+        this.currentUserId = null;
+    }
+
+    // Get current user ID
+    getCurrentUserId(): string | null {
+        return this.currentUserId;
     }
 }
 

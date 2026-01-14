@@ -125,15 +125,25 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => {
     );
     const [channels, channelsLoading] = useCollection(channelsQuery);
 
-    // Listen for all users with cleanup
+    // Listen for all users with cleanup and error handling
     useEffect(() => {
         setIsLoadingUsers(true);
+
+        // Set a timeout to stop loading after 10 seconds even if no data
+        const loadingTimeout = setTimeout(() => {
+            setIsLoadingUsers(false);
+            console.warn('User loading timed out');
+        }, 10000);
+
         const unsubscribe = userService.listenForUsers((users) => {
+            clearTimeout(loadingTimeout);
             setAllUsers(users);
             setIsLoadingUsers(false);
+            console.log('Users loaded:', users.length);
         });
 
         return () => {
+            clearTimeout(loadingTimeout);
             unsubscribe();
             userService.stopListening();
         };
