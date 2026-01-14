@@ -302,7 +302,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => {
                             <WorkspaceName>Thryve</WorkspaceName>
                             <WorkspaceStatus>
                                 <StatusDot />
-                                <span>{user?.displayName?.split(' ')[0] || 'User'}</span>
+                                <span>{user?.displayName?.split(' ')[0] || user?.email?.split('@')[0] || 'You'}</span>
                             </WorkspaceStatus>
                         </WorkspaceDetails>
                     </WorkspaceInfo>

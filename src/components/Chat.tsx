@@ -87,9 +87,18 @@ const Chat: React.FC = () => {
         const otherUserId = participants.find((id: string) => id !== user.uid);
         const memberNames = roomData.memberNames || {};
 
+        // Get name from memberNames, or extract from room name, or use fallback
+        let displayName = memberNames[otherUserId];
+        if (!displayName && roomData.name) {
+            // Room name format is "User1 & User2", try to extract the other user's name
+            const names = roomData.name.split(' & ');
+            const myName = user.displayName?.split(' ')[0] || user.email?.split('@')[0];
+            displayName = names.find((n: string) => n !== myName) || names[0];
+        }
+
         return {
             odUserId: otherUserId,
-            name: memberNames[otherUserId] || 'User',
+            name: displayName || 'Chat Partner',
             odPhoto: roomData.participantPhotos?.[otherUserId] || ''
         };
     };
