@@ -36,6 +36,7 @@ export interface PendingMessage {
   clientTimestamp: number;
   users: string;
   userImage: string;
+  userId: string;
   imageData?: ImageData | null;
   uploadedImageUrl?: string | null; // Cached URL to prevent duplicate uploads
   status: 'pending' | 'uploading' | 'failed';

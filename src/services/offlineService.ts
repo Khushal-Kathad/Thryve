@@ -14,6 +14,7 @@ interface MessageInput {
     message: string;
     users: string;
     userImage: string;
+    userId: string;
     imageData?: ImageData | null;
 }
 

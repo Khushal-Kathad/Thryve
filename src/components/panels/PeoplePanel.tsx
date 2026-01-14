@@ -44,7 +44,9 @@ const PeoplePanel: React.FC<PeoplePanelProps> = ({ onStartCall }) => {
             user.uid,
             otherUser.uid,
             user.displayName || 'You',
-            otherUser.displayName
+            otherUser.displayName,
+            user.photoURL || '',
+            otherUser.photoURL || ''
         );
 
         dispatch(addVerifiedRoom({ roomId: dmRoomId }));
