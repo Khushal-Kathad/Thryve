@@ -1,8 +1,8 @@
 name = "agora-token"
 main = "src/index.js"
-compatibility_date = "2024-01-01"
+compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
 
 [vars]
 AGORA_APP_ID = "3620019727fc452c87e8e1e72d2f8db8"
-AGORA_APP_CERTIFICATE = "165aa98f0efb4738be367b92a81ec549"
+AGORA_APP_CERTIFICATE = "889036d741654e1a946d06c997189750"

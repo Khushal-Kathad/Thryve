@@ -9,7 +9,21 @@ const APP_ID = import.meta.env.VITE_AGORA_APP_ID;
 const TOKEN_WORKER_URL = import.meta.env.VITE_AGORA_TOKEN_WORKER_URL;
 
 // Configure Agora SDK
-AgoraRTC.setLogLevel(3); // Warning level
+AgoraRTC.setLogLevel(4); // Error level only - reduces console noise
+AgoraRTC.disableLogUpload(); // Disable stats/log upload to prevent ERR_ADDRESS_INVALID errors
+
+// Convert string UID to numeric UID for Agora compatibility
+// Agora works more reliably with numeric UIDs
+function stringToNumericUid(str: string): number {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        const char = str.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash; // Convert to 32bit integer
+    }
+    // Ensure positive number and within Agora's UID range (0 to 2^32-1)
+    return Math.abs(hash) % 4294967295;
+}
 
 export interface AgoraEventHandlers {
     onUserJoined?: (user: IAgoraRTCRemoteUser) => void;
@@ -75,7 +89,7 @@ class AgoraService {
     }
 
     // Join a channel
-    async joinChannel(channelName: string, uid: string): Promise<void> {
+    async joinChannel(channelName: string, uid: string): Promise<boolean> {
         if (!this.client) {
             console.warn('Client not initialized, initializing now...');
             await this.initialize();
@@ -85,56 +99,88 @@ class AgoraService {
             throw new Error('Failed to initialize Agora client');
         }
 
-        // Prevent double joining
-        if (this.isJoining) {
-            console.log('Already joining a channel, please wait...');
-            return;
-        }
-
         const state = this.client.connectionState;
         if (state === 'CONNECTED') {
             console.log('Already connected to a channel');
-            return;
+            return true;
         }
 
-        if (state === 'CONNECTING') {
-            console.log('Already connecting to a channel');
-            return;
+        // Wait for ongoing join to complete
+        if (this.isJoining || state === 'CONNECTING') {
+            console.log('Already joining/connecting, waiting for completion...');
+            // Wait up to 10 seconds for connection
+            for (let i = 0; i < 100; i++) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+                if (this.client?.connectionState === 'CONNECTED') {
+                    console.log('Connection completed while waiting');
+                    return true;
+                }
+                if (!this.isJoining && this.client?.connectionState === 'DISCONNECTED') {
+                    console.log('Connection failed while waiting');
+                    break;
+                }
+            }
+            return this.client?.connectionState === 'CONNECTED';
         }
 
         this.isJoining = true;
         try {
+            // Convert string UID to numeric for Agora compatibility
+            const numericUid = stringToNumericUid(uid);
+            console.log(`Converting UID: ${uid} -> ${numericUid}`);
+
             // Fetch token and appId from Cloudflare Worker
-            let token = null;
+            let token: string | null = null;
             let appId = APP_ID; // Fallback to env variable
 
             if (TOKEN_WORKER_URL) {
                 try {
+                    // Use numeric UID for token generation
                     const response = await fetch(
-                        `${TOKEN_WORKER_URL}?channel=${encodeURIComponent(channelName)}&uid=${encodeURIComponent(uid)}`
+                        `${TOKEN_WORKER_URL}?channel=${encodeURIComponent(channelName)}&uid=${numericUid}`
                     );
                     if (response.ok) {
                         const data = await response.json();
                         token = data.token;
-                        // Use appId from worker response (more reliable than env var)
+                        // Use appId from worker response if provided
                         if (data.appId) {
                             appId = data.appId;
                         }
-                        console.log('Token fetched for channel:', channelName);
+                        console.log('Token fetched for channel:', channelName, 'uid:', numericUid, 'token length:', token?.length);
                     } else {
-                        console.warn('Failed to fetch token:', await response.text());
+                        const errorText = await response.text();
+                        console.warn('Failed to fetch token:', errorText);
                     }
                 } catch (tokenError) {
-                    console.warn('Error fetching token:', tokenError);
+                    console.warn('Error fetching token, will try without token:', tokenError);
                 }
             }
 
             if (!appId) {
-                throw new Error('Agora App ID not configured');
+                throw new Error('Agora App ID not configured. Please set VITE_AGORA_APP_ID in your .env file');
             }
 
-            await this.client.join(appId, channelName, token, uid);
-            console.log('Joined channel:', channelName);
+            console.log('Joining Agora channel:', channelName, 'with appId:', appId.substring(0, 8) + '...', 'uid:', numericUid, 'hasToken:', !!token);
+
+            // Try to join with token first, fall back to null token if it fails
+            try {
+                await this.client.join(appId, channelName, token, numericUid);
+                console.log('Successfully joined channel:', channelName);
+            } catch (joinError: unknown) {
+                const errorMessage = joinError instanceof Error ? joinError.message : String(joinError);
+                // If token-based join fails with "invalid vendor key", try without token
+                if (errorMessage.includes('CAN_NOT_GET_GATEWAY_SERVER') || errorMessage.includes('invalid')) {
+                    console.warn('Token-based join failed, trying without token (App ID only mode)...');
+                    await this.client.join(appId, channelName, null, numericUid);
+                    console.log('Successfully joined channel without token:', channelName);
+                } else {
+                    throw joinError;
+                }
+            }
+            return true;
+        } catch (error) {
+            console.error('Failed to join Agora channel:', error);
+            throw error;
         } finally {
             this.isJoining = false;
         }
@@ -142,18 +188,21 @@ class AgoraService {
 
     // Create and publish local tracks
     async createLocalTracks(enableVideo: boolean = true): Promise<void> {
+        console.log('Agora: Creating local tracks, enableVideo:', enableVideo);
+
         // Try to create audio track
         try {
             this.localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
-            console.log('Audio track created');
+            console.log('Agora: Audio track created successfully');
         } catch (audioError) {
-            console.warn('Could not create audio track (no microphone?):', audioError);
+            console.warn('Agora: Could not create audio track:', audioError);
             // Continue without audio
         }
 
         // Try to create video track if enabled
         if (enableVideo) {
             try {
+                console.log('Agora: Requesting camera access...');
                 this.localVideoTrack = await AgoraRTC.createCameraVideoTrack({
                     encoderConfig: {
                         width: 640,
@@ -163,16 +212,19 @@ class AgoraService {
                         bitrateMax: 1000,
                     },
                 });
-                console.log('Video track created');
+                console.log('Agora: Video track created successfully, track ID:', this.localVideoTrack.getTrackId());
             } catch (videoError) {
-                console.warn('Could not create video track (no camera?):', videoError);
+                console.error('Agora: Could not create video track:', videoError);
                 // Continue without video
             }
         }
 
+        // Log final status
+        console.log('Agora: Track creation complete - Audio:', !!this.localAudioTrack, 'Video:', !!this.localVideoTrack);
+
         // If neither track was created, warn but don't fail
         if (!this.localAudioTrack && !this.localVideoTrack) {
-            console.warn('No audio or video devices available - joining as listener only');
+            console.warn('Agora: No audio or video devices available - joining as listener only');
         }
     }
 
@@ -203,14 +255,30 @@ class AgoraService {
     // Play local video in a container
     playLocalVideo(containerId: string): void {
         if (this.localVideoTrack) {
-            this.localVideoTrack.play(containerId);
+            try {
+                console.log('Agora: Playing local video track in container:', containerId);
+                this.localVideoTrack.play(containerId);
+                console.log('Agora: Local video playing');
+            } catch (error) {
+                console.error('Agora: Error playing local video:', error);
+            }
+        } else {
+            console.warn('Agora: No local video track to play');
         }
     }
 
     // Play remote user's video
     playRemoteVideo(user: IAgoraRTCRemoteUser, containerId: string): void {
         if (user.videoTrack) {
-            user.videoTrack.play(containerId);
+            try {
+                console.log('Agora: Playing remote video for user', user.uid, 'in container:', containerId);
+                user.videoTrack.play(containerId);
+                console.log('Agora: Remote video playing for user', user.uid);
+            } catch (error) {
+                console.error('Agora: Error playing remote video:', error);
+            }
+        } else {
+            console.warn('Agora: No video track for remote user', user.uid);
         }
     }
 

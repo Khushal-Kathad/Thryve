@@ -36,7 +36,7 @@ interface MemberInfo {
     odUserId: string;
     name: string;
     photo: string;
-    messageCount: number;
+    isOnline: boolean;
 }
 
 const MembersList = ({
@@ -134,67 +134,45 @@ const MembersList = ({
         }
     };
 
-    // Extract unique members from messages
+    // Get members from channel members list only
     const members = useMemo(() => {
-        const memberMap = new Map<string, MemberInfo>();
+        const memberList: MemberInfo[] = [];
+
+        // Find current user's online status
+        const currentUserData = allUsers.find(u => u.uid === currentUserId);
 
         // Add current user first
-        memberMap.set(currentUserId, {
+        memberList.push({
             odUserId: currentUserId,
             name: currentUserName + ' (You)',
             photo: currentUserPhoto,
-            messageCount: 0,
+            isOnline: currentUserData?.isOnline ?? true,
         });
 
-        // Always use actual member list from channel
-        if (channelMembers.length > 0) {
-            channelMembers.forEach(memberId => {
-                if (memberId !== currentUserId) {
-                    const user = allUsers.find(u => u.uid === memberId);
-                    if (user) {
-                        memberMap.set(memberId, {
-                            odUserId: memberId,
-                            name: user.displayName,
-                            photo: user.photoURL || '',
-                            messageCount: 0,
-                        });
-                    }
-                }
-            });
-        }
-
-        // Extract members from messages
-        if (roomMessages) {
-            roomMessages.docs.forEach((docItem) => {
-                const data = docItem.data();
-                const odUserId = data.userId || data.users; // userId or username as fallback
-                const name = data.users;
-                const photo = data.userImage;
-
-                if (odUserId && name && !memberMap.has(odUserId)) {
-                    memberMap.set(odUserId, {
-                        odUserId,
-                        name,
-                        photo: photo || '',
-                        messageCount: 0,
+        // Add other channel members
+        channelMembers.forEach(memberId => {
+            if (memberId !== currentUserId) {
+                const user = allUsers.find(u => u.uid === memberId);
+                if (user) {
+                    memberList.push({
+                        odUserId: memberId,
+                        name: user.displayName,
+                        photo: user.photoURL || '',
+                        isOnline: user.isOnline,
                     });
                 }
+            }
+        });
 
-                // Count messages
-                const existing = memberMap.get(odUserId);
-                if (existing) {
-                    existing.messageCount++;
-                }
-            });
-        }
-
-        // Sort: current user first, then by message count
-        return Array.from(memberMap.values()).sort((a, b) => {
+        // Sort: current user first, then online users, then offline
+        return memberList.sort((a, b) => {
             if (a.odUserId === currentUserId) return -1;
             if (b.odUserId === currentUserId) return 1;
-            return b.messageCount - a.messageCount;
+            if (a.isOnline && !b.isOnline) return -1;
+            if (!a.isOnline && b.isOnline) return 1;
+            return a.name.localeCompare(b.name);
         });
-    }, [roomMessages, currentUserId, currentUserName, currentUserPhoto, channelMembers, allUsers]);
+    }, [currentUserId, currentUserName, currentUserPhoto, channelMembers, allUsers]);
 
     return (
         <Container>
@@ -262,15 +240,15 @@ const MembersList = ({
                                 ) : (
                                     <PersonIcon />
                                 )}
-                                <OnlineIndicator />
+                                <OnlineIndicator $isOnline={member.isOnline} />
                             </MemberAvatar>
                             <MemberInfoContainer>
                                 <MemberName>
                                     {member.name}
                                     {isMemberCreator && <CreatorBadge>Creator</CreatorBadge>}
                                 </MemberName>
-                                <MemberStatus>
-                                    {member.messageCount} message{member.messageCount !== 1 ? 's' : ''}
+                                <MemberStatus $isOnline={member.isOnline}>
+                                    {member.isOnline ? 'Online' : 'Offline'}
                                 </MemberStatus>
                             </MemberInfoContainer>
                             {!isCurrentUser && (
@@ -528,14 +506,14 @@ const MemberAvatar = styled.div`
     }
 `;
 
-const OnlineIndicator = styled.div`
+const OnlineIndicator = styled.div<{ $isOnline?: boolean }>`
     position: absolute;
     bottom: 2px;
     right: 2px;
     width: 10px;
     height: 10px;
     border-radius: 50%;
-    background: var(--accent-success);
+    background: ${({ $isOnline }) => $isOnline ? 'var(--accent-success)' : 'var(--text-muted)'};
     border: 2px solid var(--bg-secondary);
 `;
 
@@ -567,9 +545,9 @@ const CreatorBadge = styled.span`
     letter-spacing: 0.3px;
 `;
 
-const MemberStatus = styled.div`
+const MemberStatus = styled.div<{ $isOnline?: boolean }>`
     font-size: 0.75rem;
-    color: var(--text-muted);
+    color: ${({ $isOnline }) => $isOnline ? 'var(--accent-success)' : 'var(--text-muted)'};
 `;
 
 const MemberActions = styled.div`
