@@ -164,61 +164,123 @@ class UserService {
         return snapshot.docs.map(doc => doc.data() as AppUser);
     }
 
+    // Process user documents into AppUser objects
+    private processUserDocs(docs: any[]): AppUser[] {
+        const users = docs.map(doc => {
+            const data = doc.data ? doc.data() : doc;
+            const docId = doc.id || data.uid;
+
+            // Check if user was active in the last 5 minutes for online status
+            const lastSeenTime = data.lastSeen || 0;
+            const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
+            const isRecentlyActive = lastSeenTime > fiveMinutesAgo;
+
+            // Ensure all fields have default values
+            return {
+                uid: data.uid || docId,
+                displayName: data.displayName || getNameFromEmail(data.email) || 'Unknown',
+                email: data.email || '',
+                photoURL: data.photoURL || '',
+                lastSeen: lastSeenTime,
+                // User is online if explicitly set OR was active recently
+                isOnline: data.isOnline === true || isRecentlyActive,
+                createdAt: data.createdAt || 0,
+            } as AppUser;
+        });
+
+        // Sort by online status first, then by lastSeen (most recent first)
+        users.sort((a, b) => {
+            if (a.isOnline && !b.isOnline) return -1;
+            if (!a.isOnline && b.isOnline) return 1;
+            return (b.lastSeen || 0) - (a.lastSeen || 0);
+        });
+
+        return users;
+    }
+
+    // Fetch users once (fallback when realtime fails)
+    async fetchUsersOnce(): Promise<AppUser[]> {
+        try {
+            const usersRef = collection(db, 'users');
+            const snapshot = await withRetry(() => getDocs(usersRef));
+            return this.processUserDocs(snapshot.docs);
+        } catch (error) {
+            console.error('Error fetching users:', error);
+            return [];
+        }
+    }
+
     // Listen for all users (real-time) - optimized for online status
     listenForUsers(onUsersChange: (users: AppUser[]) => void, maxUsers: number = 100): Unsubscribe {
         if (this.usersUnsubscribe) {
             this.usersUnsubscribe();
         }
 
-        try {
-            const usersRef = collection(db, 'users');
-            // Get more users to ensure we capture all online users
-            const q = query(usersRef, limit(maxUsers));
+        let hasReceivedData = false;
+        let retryCount = 0;
+        const maxRetries = 3;
 
-            this.usersUnsubscribe = onSnapshot(q, (snapshot) => {
-                console.log('Snapshot received, docs count:', snapshot.docs.length);
+        const setupListener = () => {
+            try {
+                const usersRef = collection(db, 'users');
+                const q = query(usersRef, limit(maxUsers));
 
-                const users = snapshot.docs.map(doc => {
-                    const data = doc.data();
-                    // Check if user was active in the last 5 minutes for online status
-                    const lastSeenTime = data.lastSeen || 0;
-                    const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
-                    const isRecentlyActive = lastSeenTime > fiveMinutesAgo;
+                this.usersUnsubscribe = onSnapshot(q,
+                    (snapshot) => {
+                        hasReceivedData = true;
+                        retryCount = 0; // Reset retry count on success
+                        console.log('Snapshot received, docs count:', snapshot.docs.length);
 
-                    // Ensure all fields have default values for old users
-                    return {
-                        uid: data.uid || doc.id,
-                        displayName: data.displayName || 'Unknown',
-                        email: data.email || '',
-                        photoURL: data.photoURL || '',
-                        lastSeen: lastSeenTime,
-                        // User is online if explicitly set OR was active recently
-                        isOnline: data.isOnline === true || isRecentlyActive,
-                        createdAt: data.createdAt || 0,
-                    } as AppUser;
-                });
+                        const users = this.processUserDocs(snapshot.docs);
+                        console.log('Users processed:', users.map(u => ({ name: u.displayName, online: u.isOnline })));
+                        onUsersChange(users);
+                    },
+                    async (error) => {
+                        console.error('Snapshot error:', error.code, error.message);
 
-                // Sort by online status first, then by lastSeen (most recent first)
-                users.sort((a, b) => {
-                    if (a.isOnline && !b.isOnline) return -1;
-                    if (!a.isOnline && b.isOnline) return 1;
-                    return (b.lastSeen || 0) - (a.lastSeen || 0);
-                });
+                        // Try to reconnect and retry
+                        if (retryCount < maxRetries) {
+                            retryCount++;
+                            console.log(`Retrying listener (${retryCount}/${maxRetries})...`);
 
-                console.log('Users processed:', users.map(u => ({ name: u.displayName, online: u.isOnline })));
-                onUsersChange(users);
-            }, (error) => {
-                console.error('Error listening for users:', error);
-                // Still call with empty array so loading state ends
-                onUsersChange([]);
-            });
+                            await reconnectFirestore();
+                            await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
 
-            return this.usersUnsubscribe;
-        } catch (error) {
-            console.error('Error setting up user listener:', error);
-            // Return a no-op unsubscribe function
-            return () => {};
-        }
+                            // Try to fetch users directly as fallback
+                            const users = await this.fetchUsersOnce();
+                            if (users.length > 0) {
+                                console.log('Fallback fetch successful:', users.length, 'users');
+                                onUsersChange(users);
+                            }
+
+                            // Re-setup listener
+                            if (this.usersUnsubscribe) {
+                                this.usersUnsubscribe();
+                            }
+                            setupListener();
+                        } else {
+                            console.error('Max retries reached for user listener');
+                            // Final fallback - fetch once
+                            const users = await this.fetchUsersOnce();
+                            onUsersChange(users);
+                        }
+                    }
+                );
+            } catch (error) {
+                console.error('Error setting up user listener:', error);
+                // Try fallback fetch
+                this.fetchUsersOnce().then(users => onUsersChange(users));
+            }
+        };
+
+        setupListener();
+
+        return () => {
+            if (this.usersUnsubscribe) {
+                this.usersUnsubscribe();
+                this.usersUnsubscribe = null;
+            }
+        };
     }
 
     // Get user by ID

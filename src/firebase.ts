@@ -3,10 +3,12 @@ import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import {
     initializeFirestore,
-    persistentLocalCache,
-    persistentSingleTabManager,
+    memoryLocalCache,
     enableNetwork,
-    disableNetwork
+    disableNetwork,
+    waitForPendingWrites,
+    onSnapshotsInSync,
+    CACHE_SIZE_UNLIMITED
 } from "firebase/firestore";
 
 const firebaseConfig = {
@@ -21,29 +23,53 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
-// Initialize Firestore with persistent cache
+// Initialize Firestore with memory cache (more reliable than persistent)
 // Using long polling to avoid WebChannel/QUIC errors on some networks
 const db = initializeFirestore(app, {
-    localCache: persistentLocalCache({
-        tabManager: persistentSingleTabManager({ forceOwnership: false })
-    }),
+    localCache: memoryLocalCache(),
     experimentalForceLongPolling: true,
-    experimentalAutoDetectLongPolling: false,
 });
 
 const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
 
+// Connection state
+let isFirestoreConnected = true;
+
+// Listen for connection state changes
+onSnapshotsInSync(db, () => {
+    if (!isFirestoreConnected) {
+        console.log('Firestore connection restored');
+        isFirestoreConnected = true;
+    }
+});
+
 // Helper to reconnect Firestore if connection drops
-export const reconnectFirestore = async () => {
+export const reconnectFirestore = async (): Promise<boolean> => {
     try {
+        console.log('Attempting to reconnect Firestore...');
         await disableNetwork(db);
+        await new Promise(resolve => setTimeout(resolve, 500));
         await enableNetwork(db);
-        console.log('Firestore reconnected');
+        console.log('Firestore reconnected successfully');
+        isFirestoreConnected = true;
         return true;
     } catch (error) {
         console.error('Failed to reconnect Firestore:', error);
+        isFirestoreConnected = false;
         return false;
+    }
+};
+
+// Check if Firestore is connected
+export const isConnected = (): boolean => isFirestoreConnected;
+
+// Wait for pending writes to complete
+export const flushWrites = async (): Promise<void> => {
+    try {
+        await waitForPendingWrites(db);
+    } catch (error) {
+        console.error('Error flushing writes:', error);
     }
 };
 
