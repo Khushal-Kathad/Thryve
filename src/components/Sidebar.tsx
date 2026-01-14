@@ -103,7 +103,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => {
                 user.uid,
                 otherUser.uid,
                 user.displayName || 'You',
-                otherUser.displayName
+                otherUser.displayName,
+                user.photoURL || '',
+                otherUser.photoURL || ''
             );
 
             dispatch(addVerifiedRoom({ roomId: dmRoomId }));

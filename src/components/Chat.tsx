@@ -10,9 +10,14 @@ import CallIcon from '@mui/icons-material/Call';
 import VideocamIcon from '@mui/icons-material/Videocam';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
 import GroupsIcon from '@mui/icons-material/Groups';
+import PersonIcon from '@mui/icons-material/Person';
+import SearchIcon from '@mui/icons-material/Search';
+import CloseIcon from '@mui/icons-material/Close';
+import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import { useSelector, useDispatch } from 'react-redux';
 import { selectRoomId, enterRoom } from '../features/appSlice';
-import ChatInput from './ChatInput';
+import ChatInput, { ReplyData } from './ChatInput';
 import { doc, orderBy, query, deleteDoc, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useCollection, useDocument } from 'react-firebase-hooks/firestore';
@@ -29,6 +34,7 @@ import { setCurrentCall, selectIsInCall } from '../features/callSlice';
 import MembersList from './MembersList';
 import ActiveCallBanner from './ui/ActiveCallBanner';
 import type { PendingMessage, Call } from '../types';
+import { userService } from '../services/userService';
 
 const Chat: React.FC = () => {
     const chatRef = useRef<HTMLDivElement>(null);
@@ -47,6 +53,13 @@ const Chat: React.FC = () => {
     const [isJoiningCall, setIsJoiningCall] = useState(false);
     const [typingUsers, setTypingUsers] = useState<TypingUser[]>([]);
     const [isStarred, setIsStarred] = useState(false);
+    const [otherUserOnline, setOtherUserOnline] = useState(false);
+    const [replyTo, setReplyTo] = useState<ReplyData | null>(null);
+    const [showSearch, setShowSearch] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchResults, setSearchResults] = useState<string[]>([]);
+    const [currentSearchIndex, setCurrentSearchIndex] = useState(0);
+    const searchInputRef = useRef<HTMLInputElement>(null);
 
     const [roomDetails] = useDocument(
         roomId !== 'null' ? doc(db, 'rooms', roomId) : null
@@ -60,6 +73,42 @@ const Chat: React.FC = () => {
             : null
     );
 
+    // Check if this is a DM
+    const isDM = roomDetails?.data()?.isDM === true;
+
+    // Get other user's info for DM
+    const getOtherUserInfo = () => {
+        if (!isDM || !user) return null;
+        const roomData = roomDetails?.data();
+        if (!roomData) return null;
+
+        const participants = roomData.participants || [];
+        const otherUserId = participants.find((id: string) => id !== user.uid);
+        const memberNames = roomData.memberNames || {};
+
+        return {
+            odUserId: otherUserId,
+            name: memberNames[otherUserId] || 'User',
+            odPhoto: roomData.participantPhotos?.[otherUserId] || ''
+        };
+    };
+
+    const otherUser = getOtherUserInfo();
+
+    // Listen for other user's online status in DMs
+    useEffect(() => {
+        if (!isDM || !otherUser?.odUserId) {
+            setOtherUserOnline(false);
+            return;
+        }
+
+        const unsubscribe = userService.listenForUserStatus(otherUser.odUserId, (isOnline) => {
+            setOtherUserOnline(isOnline);
+        });
+
+        return () => unsubscribe();
+    }, [isDM, otherUser?.odUserId]);
+
     const loadPendingMessages = useCallback(async () => {
         if (roomId !== 'null') {
             const pending = await offlineService.getPendingMessagesForRoom(roomId);
@@ -68,6 +117,86 @@ const Chat: React.FC = () => {
             setPendingMessages([]);
         }
     }, [roomId]);
+
+    // Reply handler
+    const handleReply = useCallback((data: ReplyData) => {
+        setReplyTo(data);
+    }, []);
+
+    const handleCancelReply = useCallback(() => {
+        setReplyTo(null);
+    }, []);
+
+    // Clear reply when room changes
+    useEffect(() => {
+        setReplyTo(null);
+    }, [roomId]);
+
+    // Search functionality
+    const handleSearchToggle = useCallback(() => {
+        setShowSearch(prev => {
+            if (!prev) {
+                setTimeout(() => searchInputRef.current?.focus(), 100);
+            } else {
+                setSearchQuery('');
+                setSearchResults([]);
+                setCurrentSearchIndex(0);
+            }
+            return !prev;
+        });
+    }, []);
+
+    const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+        const query = e.target.value;
+        setSearchQuery(query);
+
+        if (!query.trim() || !roomMessages?.docs) {
+            setSearchResults([]);
+            setCurrentSearchIndex(0);
+            return;
+        }
+
+        const lowerQuery = query.toLowerCase();
+        const matchingIds = roomMessages.docs
+            .filter(doc => {
+                const data = doc.data();
+                return data.message?.toLowerCase().includes(lowerQuery);
+            })
+            .map(doc => doc.id);
+
+        setSearchResults(matchingIds);
+        setCurrentSearchIndex(matchingIds.length > 0 ? 0 : -1);
+
+        // Scroll to first result
+        if (matchingIds.length > 0) {
+            const element = document.getElementById(`message-${matchingIds[0]}`);
+            element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }, [roomMessages]);
+
+    const navigateSearch = useCallback((direction: 'up' | 'down') => {
+        if (searchResults.length === 0) return;
+
+        let newIndex;
+        if (direction === 'up') {
+            newIndex = currentSearchIndex > 0 ? currentSearchIndex - 1 : searchResults.length - 1;
+        } else {
+            newIndex = currentSearchIndex < searchResults.length - 1 ? currentSearchIndex + 1 : 0;
+        }
+
+        setCurrentSearchIndex(newIndex);
+        const element = document.getElementById(`message-${searchResults[newIndex]}`);
+        element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, [searchResults, currentSearchIndex]);
+
+    const handleSearchKeyDown = useCallback((e: React.KeyboardEvent) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            navigateSearch(e.shiftKey ? 'up' : 'down');
+        } else if (e.key === 'Escape') {
+            handleSearchToggle();
+        }
+    }, [navigateSearch, handleSearchToggle]);
 
     useEffect(() => {
         loadPendingMessages();
@@ -79,15 +208,14 @@ const Chat: React.FC = () => {
         });
     }, [roomId, loading, pendingMessages]);
 
-    // Listen for active group calls in this channel
+    // Listen for active group calls in this channel (only for groups, not DMs)
     useEffect(() => {
-        if (roomId === 'null') {
+        if (roomId === 'null' || isDM) {
             setActiveChannelCall(null);
             return;
         }
 
         const unsubscribe = callService.listenForChannelCalls(roomId, (call) => {
-            // Don't show banner if user is already in this call
             if (call && isInCall) {
                 setActiveChannelCall(null);
             } else {
@@ -98,7 +226,7 @@ const Chat: React.FC = () => {
         return () => {
             unsubscribe();
         };
-    }, [roomId, isInCall]);
+    }, [roomId, isInCall, isDM]);
 
     // Listen for typing users
     useEffect(() => {
@@ -117,15 +245,14 @@ const Chat: React.FC = () => {
         };
     }, [roomId, user]);
 
-    // Check if current user is the channel creator
-    const isChannelCreator = user && roomDetails?.data()?.createdBy === user.uid;
+    // Check if current user is the channel creator (only for groups)
+    const isChannelCreator = !isDM && user && roomDetails?.data()?.createdBy === user.uid;
 
     const handleDeleteChannel = async () => {
         if (!roomId || roomId === 'null' || !isChannelCreator) return;
 
         setIsDeleting(true);
         try {
-            // First delete all messages in the channel
             const messagesRef = collection(db, 'rooms', roomId, 'messages');
             const messagesSnapshot = await getDocs(messagesRef);
             const deletePromises = messagesSnapshot.docs.map(docItem =>
@@ -133,10 +260,8 @@ const Chat: React.FC = () => {
             );
             await Promise.all(deletePromises);
 
-            // Then delete the channel itself
             await deleteDoc(doc(db, 'rooms', roomId));
 
-            // Reset to no room selected
             dispatch(enterRoom({ roomId: 'null' }));
             showToast('Channel deleted successfully', 'success');
         } catch (error) {
@@ -148,9 +273,9 @@ const Chat: React.FC = () => {
         }
     };
 
-    // Start a group call in the channel
+    // Start a group call in the channel (only for groups)
     const handleStartGroupCall = async (callType: 'audio' | 'video') => {
-        if (!user || !roomId || roomId === 'null' || isInCall || isStartingCall) return;
+        if (!user || !roomId || roomId === 'null' || isInCall || isStartingCall || isDM) return;
 
         setIsStartingCall(true);
         try {
@@ -158,18 +283,17 @@ const Chat: React.FC = () => {
                 user.uid,
                 user.displayName || 'Unknown',
                 user.photoURL || '',
-                'channel', // receiverId - using 'channel' for group calls
+                'channel',
                 roomDetails?.data()?.name || 'Channel',
-                '', // receiverPhoto
+                '',
                 roomId,
                 callType,
-                true // isGroupCall
+                true
             );
 
             dispatch(setCurrentCall(call));
             showToast(`Starting ${callType} call in #${roomDetails?.data()?.name}...`, 'info');
 
-            // Listen for call status changes
             callService.listenForCallChanges(call.id, (updatedCall) => {
                 if (updatedCall.status === 'ended') {
                     showToast('Call ended', 'info');
@@ -183,8 +307,46 @@ const Chat: React.FC = () => {
         }
     };
 
-    // Start a 1-to-1 call with a specific member
-    const handleStartDirectCall = async (
+    // Start a direct call (for DMs)
+    const handleStartDirectCall = async (callType: 'audio' | 'video') => {
+        if (!user || !roomId || roomId === 'null' || isInCall || isStartingCall || !otherUser) return;
+
+        setIsStartingCall(true);
+        try {
+            const call = await callService.createCall(
+                user.uid,
+                user.displayName || 'Unknown',
+                user.photoURL || '',
+                otherUser.odUserId,
+                otherUser.name,
+                otherUser.odPhoto,
+                roomId,
+                callType,
+                false
+            );
+
+            dispatch(setCurrentCall(call));
+            showToast(`Calling ${otherUser.name}...`, 'info');
+
+            callService.listenForCallChanges(call.id, (updatedCall) => {
+                if (updatedCall.status === 'rejected') {
+                    showToast(`${otherUser.name} declined the call`, 'info');
+                } else if (updatedCall.status === 'ended') {
+                    showToast('Call ended', 'info');
+                } else if (updatedCall.status === 'missed') {
+                    showToast(`${otherUser.name} didn't answer`, 'info');
+                }
+            });
+        } catch (error) {
+            console.error('Error starting direct call:', error);
+            showToast('Failed to start call', 'error');
+        } finally {
+            setIsStartingCall(false);
+        }
+    };
+
+    // For MembersList callback (groups only)
+    const handleMemberCall = async (
         receiverId: string,
         receiverName: string,
         receiverPhoto: string,
@@ -203,13 +365,12 @@ const Chat: React.FC = () => {
                 receiverPhoto,
                 roomId,
                 callType,
-                false // isGroupCall = false for 1-to-1
+                false
             );
 
             dispatch(setCurrentCall(call));
             showToast(`Calling ${receiverName}...`, 'info');
 
-            // Listen for call status changes
             callService.listenForCallChanges(call.id, (updatedCall) => {
                 if (updatedCall.status === 'rejected') {
                     showToast(`${receiverName} declined the call`, 'info');
@@ -231,13 +392,11 @@ const Chat: React.FC = () => {
     const handleJoinGroupCall = async () => {
         if (!user || !activeChannelCall || isInCall || isJoiningCall) return;
 
-        // Check if user is already a participant
         const isAlreadyParticipant = activeChannelCall.participants?.some(
             (p) => p.odUserId === user.uid
         );
 
         if (isAlreadyParticipant) {
-            // User is already in call, just set current call without adding again
             dispatch(setCurrentCall(activeChannelCall));
             return;
         }
@@ -307,6 +466,195 @@ const Chat: React.FC = () => {
         );
     }
 
+    // Render DM Chat (WhatsApp style)
+    if (isDM && otherUser) {
+        return (
+            <ChatContainer>
+                <ChatHeader>
+                    <HeaderLeft>
+                        <DMUserAvatar>
+                            {otherUser.odPhoto ? (
+                                <img src={otherUser.odPhoto} alt={otherUser.name} />
+                            ) : (
+                                <PersonIcon />
+                            )}
+                            <OnlineIndicator $isOnline={otherUserOnline} />
+                        </DMUserAvatar>
+                        <DMUserInfo>
+                            <DMUserName>{otherUser.name}</DMUserName>
+                            <DMUserStatus $online={otherUserOnline}>
+                                {otherUserOnline ? 'Online' : 'Offline'}
+                            </DMUserStatus>
+                        </DMUserInfo>
+                    </HeaderLeft>
+                    <HeaderRight>
+                        <ActionButton
+                            onClick={handleSearchToggle}
+                            $active={showSearch}
+                            title="Search messages"
+                        >
+                            <SearchIcon />
+                        </ActionButton>
+                        <ActionButton
+                            title="Voice Call"
+                            onClick={() => handleStartDirectCall('audio')}
+                            disabled={isInCall || isStartingCall}
+                        >
+                            <CallIcon />
+                        </ActionButton>
+                        <ActionButton
+                            title="Video Call"
+                            onClick={() => handleStartDirectCall('video')}
+                            disabled={isInCall || isStartingCall}
+                        >
+                            <VideocamIcon />
+                        </ActionButton>
+                        <ActionButton title="Info">
+                            <InfoOutlinedIcon />
+                        </ActionButton>
+                    </HeaderRight>
+                </ChatHeader>
+
+                {/* Search Bar */}
+                {showSearch && (
+                    <SearchBar>
+                        <SearchInputWrapper>
+                            <SearchIcon />
+                            <SearchInput
+                                ref={searchInputRef}
+                                type="text"
+                                placeholder="Search in messages..."
+                                value={searchQuery}
+                                onChange={handleSearchChange}
+                                onKeyDown={handleSearchKeyDown}
+                            />
+                            {searchQuery && (
+                                <SearchResults>
+                                    {searchResults.length > 0
+                                        ? `${currentSearchIndex + 1} of ${searchResults.length}`
+                                        : 'No results'}
+                                </SearchResults>
+                            )}
+                        </SearchInputWrapper>
+                        <SearchNavButtons>
+                            <SearchNavButton
+                                onClick={() => navigateSearch('up')}
+                                disabled={searchResults.length === 0}
+                                title="Previous (Shift+Enter)"
+                            >
+                                <KeyboardArrowUpIcon />
+                            </SearchNavButton>
+                            <SearchNavButton
+                                onClick={() => navigateSearch('down')}
+                                disabled={searchResults.length === 0}
+                                title="Next (Enter)"
+                            >
+                                <KeyboardArrowDownIcon />
+                            </SearchNavButton>
+                        </SearchNavButtons>
+                        <CloseSearchButton onClick={handleSearchToggle} title="Close (Esc)">
+                            <CloseIcon />
+                        </CloseSearchButton>
+                    </SearchBar>
+                )}
+
+                <ChatBody>
+                    <ChatContent>
+                        <ChatMessages>
+                            {loading ? (
+                                <LoadingContainer>
+                                    <LoadingSpinner />
+                                    <LoadingText>Loading messages...</LoadingText>
+                                </LoadingContainer>
+                            ) : (
+                                <>
+                                    <DMChatStart>
+                                        <DMChatStartAvatar>
+                                            {otherUser.odPhoto ? (
+                                                <img src={otherUser.odPhoto} alt={otherUser.name} />
+                                            ) : (
+                                                <PersonIcon />
+                                            )}
+                                        </DMChatStartAvatar>
+                                        <DMChatStartTitle>{otherUser.name}</DMChatStartTitle>
+                                        <DMChatStartText>
+                                            This is the beginning of your conversation with {otherUser.name}
+                                        </DMChatStartText>
+                                    </DMChatStart>
+
+                                    <MessagesWrapper>
+                                        {roomMessages?.docs.map((docItem) => {
+                                            const { message, timestamp, users, userImage, imageUrl, reactions, isRead, replyTo: msgReplyTo } = docItem.data();
+                                            const isHighlighted = searchResults.includes(docItem.id) && searchResults[currentSearchIndex] === docItem.id;
+                                            return (
+                                                <MessageWrapper key={docItem.id} id={`message-${docItem.id}`} $highlighted={isHighlighted}>
+                                                    <Message
+                                                        id={docItem.id}
+                                                        message={message}
+                                                        timestamp={timestamp}
+                                                        users={users}
+                                                        userImage={userImage}
+                                                        imageUrl={imageUrl}
+                                                        reactions={reactions}
+                                                        roomId={roomId}
+                                                        userId={user?.uid}
+                                                        currentUserName={user?.displayName || ''}
+                                                        isRead={isRead}
+                                                        replyTo={msgReplyTo}
+                                                        onReply={handleReply}
+                                                    />
+                                                </MessageWrapper>
+                                            );
+                                        })}
+                                        {pendingMessages.map((msg) => (
+                                            <Message
+                                                key={msg.id}
+                                                id={msg.id}
+                                                message={msg.message}
+                                                timestamp={null}
+                                                users={msg.users}
+                                                userImage={msg.userImage}
+                                                imageUrl={msg.imageData?.base64}
+                                                isPending={true}
+                                                pendingStatus={msg.status}
+                                                roomId={roomId}
+                                                userId={user?.uid}
+                                                currentUserName={user?.displayName || ''}
+                                            />
+                                        ))}
+                                    </MessagesWrapper>
+                                    <ChatBottom ref={chatRef} />
+                                </>
+                            )}
+                        </ChatMessages>
+
+                        {/* Typing Indicator */}
+                        {typingUsers.length > 0 && (
+                            <TypingIndicator>
+                                <TypingDots>
+                                    <span></span>
+                                    <span></span>
+                                    <span></span>
+                                </TypingDots>
+                                <TypingText>{otherUser.name} is typing...</TypingText>
+                            </TypingIndicator>
+                        )}
+
+                        <ChatInput
+                            chatRef={chatRef}
+                            channelName={otherUser.name}
+                            channelId={roomId}
+                            onPendingUpdate={loadPendingMessages}
+                            replyTo={replyTo}
+                            onCancelReply={handleCancelReply}
+                        />
+                    </ChatContent>
+                </ChatBody>
+            </ChatContainer>
+        );
+    }
+
+    // Render Group Chat
     return (
         <ChatContainer>
             <ChatHeader>
@@ -323,6 +671,13 @@ const Chat: React.FC = () => {
                 </HeaderLeft>
                 <HeaderRight>
                     <HeaderActions>
+                        <ActionButton
+                            onClick={handleSearchToggle}
+                            $active={showSearch}
+                            title="Search messages"
+                        >
+                            <SearchIcon />
+                        </ActionButton>
                         <ActionButton
                             onClick={() => setIsStarred(!isStarred)}
                             $active={isStarred}
@@ -368,6 +723,49 @@ const Chat: React.FC = () => {
                 </HeaderRight>
             </ChatHeader>
 
+            {/* Search Bar */}
+            {showSearch && (
+                <SearchBar>
+                    <SearchInputWrapper>
+                        <SearchIcon />
+                        <SearchInput
+                            ref={searchInputRef}
+                            type="text"
+                            placeholder="Search in messages..."
+                            value={searchQuery}
+                            onChange={handleSearchChange}
+                            onKeyDown={handleSearchKeyDown}
+                        />
+                        {searchQuery && (
+                            <SearchResults>
+                                {searchResults.length > 0
+                                    ? `${currentSearchIndex + 1} of ${searchResults.length}`
+                                    : 'No results'}
+                            </SearchResults>
+                        )}
+                    </SearchInputWrapper>
+                    <SearchNavButtons>
+                        <SearchNavButton
+                            onClick={() => navigateSearch('up')}
+                            disabled={searchResults.length === 0}
+                            title="Previous (Shift+Enter)"
+                        >
+                            <KeyboardArrowUpIcon />
+                        </SearchNavButton>
+                        <SearchNavButton
+                            onClick={() => navigateSearch('down')}
+                            disabled={searchResults.length === 0}
+                            title="Next (Enter)"
+                        >
+                            <KeyboardArrowDownIcon />
+                        </SearchNavButton>
+                    </SearchNavButtons>
+                    <CloseSearchButton onClick={handleSearchToggle} title="Close (Esc)">
+                        <CloseIcon />
+                    </CloseSearchButton>
+                </SearchBar>
+            )}
+
             {/* Active Call Banner */}
             {activeChannelCall && !isInCall && (
                 <ActiveCallBanner
@@ -403,20 +801,26 @@ const Chat: React.FC = () => {
 
                                 <MessagesWrapper>
                                     {roomMessages?.docs.map((docItem) => {
-                                        const { message, timestamp, users, userImage, imageUrl, reactions } = docItem.data();
+                                        const { message, timestamp, users, userImage, imageUrl, reactions, isRead, replyTo: msgReplyTo } = docItem.data();
+                                        const isHighlighted = searchResults.includes(docItem.id) && searchResults[currentSearchIndex] === docItem.id;
                                         return (
-                                            <Message
-                                                key={docItem.id}
-                                                id={docItem.id}
-                                                message={message}
-                                                timestamp={timestamp}
-                                                users={users}
-                                                userImage={userImage}
-                                                imageUrl={imageUrl}
-                                                reactions={reactions}
-                                                roomId={roomId}
-                                                userId={user?.uid}
-                                            />
+                                            <MessageWrapper key={docItem.id} id={`message-${docItem.id}`} $highlighted={isHighlighted}>
+                                                <Message
+                                                    id={docItem.id}
+                                                    message={message}
+                                                    timestamp={timestamp}
+                                                    users={users}
+                                                    userImage={userImage}
+                                                    imageUrl={imageUrl}
+                                                    reactions={reactions}
+                                                    roomId={roomId}
+                                                    userId={user?.uid}
+                                                    currentUserName={user?.displayName || ''}
+                                                    isRead={isRead}
+                                                    replyTo={msgReplyTo}
+                                                    onReply={handleReply}
+                                                />
+                                            </MessageWrapper>
                                         );
                                     })}
                                     {pendingMessages.map((msg) => (
@@ -432,6 +836,7 @@ const Chat: React.FC = () => {
                                             pendingStatus={msg.status}
                                             roomId={roomId}
                                             userId={user?.uid}
+                                            currentUserName={user?.displayName || ''}
                                         />
                                     ))}
                                 </MessagesWrapper>
@@ -463,10 +868,12 @@ const Chat: React.FC = () => {
                         channelName={roomDetails?.data()?.name}
                         channelId={roomId}
                         onPendingUpdate={loadPendingMessages}
+                        replyTo={replyTo}
+                        onCancelReply={handleCancelReply}
                     />
                 </ChatContent>
 
-                {/* Members Panel */}
+                {/* Members Panel - Only for groups */}
                 {showMembersPanel && user && (
                     <MembersList
                         roomMessages={roomMessages}
@@ -474,7 +881,7 @@ const Chat: React.FC = () => {
                         currentUserName={user.displayName || 'Unknown'}
                         currentUserPhoto={user.photoURL || ''}
                         onClose={() => setShowMembersPanel(false)}
-                        onStartCall={handleStartDirectCall}
+                        onStartCall={handleMemberCall}
                         isInCall={isInCall}
                         roomId={roomId}
                         channelName={roomDetails?.data()?.name}
@@ -546,6 +953,15 @@ const pulse = keyframes`
     }
     50% {
         opacity: 0.5;
+    }
+`;
+
+const onlinePulse = keyframes`
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4);
+    }
+    50% {
+        box-shadow: 0 0 0 4px rgba(34, 197, 94, 0);
     }
 `;
 
@@ -702,6 +1118,127 @@ const HeaderLeft = styled.div`
     flex: 1;
 `;
 
+// DM specific header styles
+const DMUserAvatar = styled.div`
+    position: relative;
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius-full);
+    background: var(--purple-100);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    overflow: visible;
+
+    img {
+        width: 100%;
+        height: 100%;
+        border-radius: var(--radius-full);
+        object-fit: cover;
+    }
+
+    svg {
+        font-size: 1.5rem;
+        color: var(--accent-primary);
+    }
+
+    @media (max-width: 480px) {
+        width: 40px;
+        height: 40px;
+    }
+`;
+
+const OnlineIndicator = styled.span<{ $isOnline: boolean }>`
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: ${props => props.$isOnline ? 'var(--accent-success)' : 'var(--text-muted)'};
+    border: 3px solid var(--bg-primary);
+    animation: ${props => props.$isOnline ? onlinePulse : 'none'} 2s ease-in-out infinite;
+`;
+
+const DMUserInfo = styled.div`
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+`;
+
+const DMUserName = styled.h3`
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+
+    @media (max-width: 480px) {
+        font-size: 1rem;
+    }
+`;
+
+const DMUserStatus = styled.span<{ $online: boolean }>`
+    font-size: 0.8rem;
+    color: ${props => props.$online ? 'var(--accent-success)' : 'var(--text-muted)'};
+    font-weight: 500;
+`;
+
+const DMChatStart = styled.div`
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: var(--spacing-xl);
+    margin-bottom: var(--spacing-lg);
+    animation: ${fadeIn} 0.5s ease-out;
+    text-align: center;
+`;
+
+const DMChatStartAvatar = styled.div`
+    width: 80px;
+    height: 80px;
+    border-radius: var(--radius-full);
+    background: var(--purple-100);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: var(--spacing-lg);
+    box-shadow: var(--shadow-lg);
+
+    img {
+        width: 100%;
+        height: 100%;
+        border-radius: var(--radius-full);
+        object-fit: cover;
+    }
+
+    svg {
+        font-size: 2.5rem;
+        color: var(--accent-primary);
+    }
+`;
+
+const DMChatStartTitle = styled.h2`
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: var(--spacing-sm);
+
+    @media (max-width: 480px) {
+        font-size: 1.25rem;
+    }
+`;
+
+const DMChatStartText = styled.p`
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    max-width: 400px;
+    line-height: 1.5;
+`;
+
+// Group chat header styles
 const ChannelIcon = styled.div`
     display: flex;
     align-items: center;
@@ -860,7 +1397,6 @@ const ChatMessages = styled.div`
     overflow-x: hidden;
     padding: var(--spacing-md);
 
-    /* Custom scrollbar */
     &::-webkit-scrollbar {
         width: 6px;
     }
@@ -998,4 +1534,121 @@ const TypingText = styled.span`
     color: var(--text-muted);
     font-size: 0.85rem;
     font-style: italic;
+`;
+
+// Search Bar Styles
+const SearchBar = styled.div`
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--bg-primary);
+    border-bottom: 1px solid var(--border-light);
+    animation: ${fadeIn} 0.2s ease-out;
+`;
+
+const SearchInputWrapper = styled.div`
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-light);
+
+    svg {
+        font-size: 1.2rem;
+        color: var(--text-muted);
+    }
+`;
+
+const SearchInput = styled.input`
+    flex: 1;
+    min-width: 0;
+    background: transparent;
+    border: none;
+    outline: none;
+    font-size: 0.95rem;
+    color: var(--text-primary);
+
+    &::placeholder {
+        color: var(--text-muted);
+    }
+`;
+
+const SearchResults = styled.span`
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+`;
+
+const SearchNavButtons = styled.div`
+    display: flex;
+    gap: 2px;
+`;
+
+const SearchNavButton = styled.button`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    transition: all var(--transition-fast);
+
+    &:hover:not(:disabled) {
+        background: var(--purple-50);
+        color: var(--accent-primary);
+    }
+
+    &:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+    }
+
+    svg {
+        font-size: 1.2rem;
+    }
+`;
+
+const CloseSearchButton = styled.button`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-md);
+    color: var(--text-muted);
+    transition: all var(--transition-fast);
+
+    &:hover {
+        background: rgba(239, 68, 68, 0.1);
+        color: var(--accent-danger);
+    }
+
+    svg {
+        font-size: 1.2rem;
+    }
+`;
+
+const pulseHighlight = keyframes`
+    0%, 100% {
+        background: rgba(124, 58, 237, 0.15);
+    }
+    50% {
+        background: rgba(124, 58, 237, 0.25);
+    }
+`;
+
+const MessageWrapper = styled.div<{ $highlighted?: boolean }>`
+    transition: background 0.3s ease;
+    border-radius: var(--radius-lg);
+    padding: 2px;
+    margin: -2px;
+    ${props => props.$highlighted && `
+        background: rgba(124, 58, 237, 0.15);
+        animation: ${pulseHighlight} 1s ease-in-out;
+    `}
 `;
