@@ -19,6 +19,7 @@ import { useAuthState } from 'react-firebase-hooks/auth';
 import Message from './Message';
 import { offlineService } from '../services/offlineService';
 import { callService } from '../services/callService';
+import { typingService, TypingUser } from '../services/typingService';
 import { useToast } from '../context/ToastContext';
 import ConfirmDialog from './ui/ConfirmDialog';
 import { setCurrentCall, selectIsInCall } from '../features/callSlice';
@@ -41,6 +42,7 @@ const Chat: React.FC = () => {
     const [showMembersPanel, setShowMembersPanel] = useState(false);
     const [activeChannelCall, setActiveChannelCall] = useState<Call | null>(null);
     const [isJoiningCall, setIsJoiningCall] = useState(false);
+    const [typingUsers, setTypingUsers] = useState<TypingUser[]>([]);
 
     const [roomDetails] = useDocument(
         roomId !== 'null' ? doc(db, 'rooms', roomId) : null
@@ -93,6 +95,23 @@ const Chat: React.FC = () => {
             unsubscribe();
         };
     }, [roomId, isInCall]);
+
+    // Listen for typing users
+    useEffect(() => {
+        if (roomId === 'null' || !user) {
+            setTypingUsers([]);
+            return;
+        }
+
+        const unsubscribe = typingService.listenForTyping(roomId, user.uid, (users) => {
+            setTypingUsers(users);
+        });
+
+        return () => {
+            unsubscribe();
+            typingService.stopListening();
+        };
+    }, [roomId, user]);
 
     // Check if current user is the channel creator
     const isChannelCreator = user && roomDetails?.data()?.createdBy === user.uid;
@@ -386,6 +405,24 @@ const Chat: React.FC = () => {
                     </>
                 )}
                 </ChatMessages>
+
+                {/* Typing Indicator */}
+                {typingUsers.length > 0 && (
+                    <TypingIndicator>
+                        <TypingDots>
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                        </TypingDots>
+                        <TypingText>
+                            {typingUsers.length === 1
+                                ? `${typingUsers[0].odUserName} is typing...`
+                                : typingUsers.length === 2
+                                ? `${typingUsers[0].odUserName} and ${typingUsers[1].odUserName} are typing...`
+                                : `${typingUsers.length} people are typing...`}
+                        </TypingText>
+                    </TypingIndicator>
+                )}
 
                 <ChatInput
                     chatRef={chatRef}
@@ -740,4 +777,50 @@ const ChannelStartIcon = styled.div`
 
 const ChatBottom = styled.div`
     height: 100px;
+`;
+
+// Typing indicator animations
+const bounce = keyframes`
+    0%, 60%, 100% {
+        transform: translateY(0);
+    }
+    30% {
+        transform: translateY(-4px);
+    }
+`;
+
+const TypingIndicator = styled.div`
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-xs) var(--spacing-lg);
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    animation: ${fadeIn} 0.2s ease-out;
+`;
+
+const TypingDots = styled.div`
+    display: flex;
+    gap: 3px;
+
+    span {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--accent-primary);
+        animation: ${bounce} 1.4s ease-in-out infinite;
+
+        &:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        &:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+    }
+`;
+
+const TypingText = styled.span`
+    color: var(--text-muted);
+    font-style: italic;
 `;

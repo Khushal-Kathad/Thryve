@@ -146,7 +146,12 @@ const Message: React.FC<MessageProps> = ({
 
                 {imageUrl && (
                     <MessageImage>
-                        <img src={imageUrl} alt="Shared content" />
+                        <img
+                            src={imageUrl}
+                            alt="Shared content"
+                            loading="lazy"
+                            decoding="async"
+                        />
                     </MessageImage>
                 )}
 

@@ -26,6 +26,7 @@ import {
 } from './features/callSlice';
 import IncomingCallModal from './components/ui/IncomingCallModal';
 import NewMessageModal from './components/ui/NewMessageModal';
+import ErrorBoundary from './components/ErrorBoundary';
 
 // Lazy load heavy components (VideoCall has ~4MB Agora SDK)
 const VideoCall = lazy(() => import('./components/VideoCall'));
@@ -196,11 +197,19 @@ const AppContent: React.FC = () => {
                     {/* New Message Modal */}
                     <NewMessageModal isOpen={showNewMessageModal} />
 
-                    {/* Video/Audio Call UI - Lazy loaded */}
+                    {/* Video/Audio Call UI - Lazy loaded with Error Boundary */}
                     {isInCall && user && (
-                        <Suspense fallback={<CallLoader>Connecting call...</CallLoader>}>
-                            <VideoCall userId={user.uid} />
-                        </Suspense>
+                        <ErrorBoundary
+                            fallback={<CallLoader>Call error - please retry</CallLoader>}
+                            onError={(error) => {
+                                console.error('Video call error:', error);
+                                showToast('Call failed - please try again', 'error');
+                            }}
+                        >
+                            <Suspense fallback={<CallLoader>Connecting call...</CallLoader>}>
+                                <VideoCall userId={user.uid} />
+                            </Suspense>
+                        </ErrorBoundary>
                     )}
 
                     {/* Incoming Call Modal */}
