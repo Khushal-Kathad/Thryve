@@ -64,7 +64,7 @@ export interface ToastType {
   duration: number;
 }
 
-export type SidebarPanel = 'none' | 'threads' | 'mentions' | 'saved' | 'people' | 'settings';
+export type SidebarPanel = 'none' | 'saved' | 'people' | 'settings';
 
 export interface AppSettings {
   theme: 'dark' | 'light';

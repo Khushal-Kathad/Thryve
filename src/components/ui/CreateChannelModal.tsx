@@ -272,7 +272,7 @@ const Overlay = styled.div`
 const ModalBox = styled.div`
     background: rgba(30, 35, 60, 0.98);
     backdrop-filter: blur(20px);
-    border-radius: var(--radius-xl);
+    border-radius: var(--radius-lg);
     border: 1px solid rgba(255, 255, 255, 0.1);
     width: 100%;
     max-width: 440px;
@@ -437,7 +437,7 @@ const StrengthBar = styled.div<{ $strength: PasswordStrength }>`
         }};
         background: ${(props) => {
             if (props.$strength === 'weak') return 'var(--accent-danger)';
-            if (props.$strength === 'medium') return '#f5a623';
+            if (props.$strength === 'medium') return 'var(--accent-warning)';
             if (props.$strength === 'strong') return 'var(--accent-success)';
             return 'transparent';
         }};
@@ -491,7 +491,7 @@ const ToggleSwitch = styled.button<{ $isActive?: boolean }>`
     transition: all 0.2s ease;
 
     &:hover:not(:disabled) {
-        background: ${props => props.$isActive ? '#4752c4' : 'rgba(255, 255, 255, 0.15)'};
+        background: ${props => props.$isActive ? 'var(--purple-700)' : 'rgba(255, 255, 255, 0.15)'};
     }
 
     &:disabled {
@@ -570,6 +570,6 @@ const SubmitButton = styled(Button)`
     color: white;
 
     &:hover:not(:disabled) {
-        background: #4752c4;
+        background: var(--purple-700);
     }
 `;

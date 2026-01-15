@@ -3,7 +3,8 @@ import './App.css';
 import Header from './components/Header';
 import styled, { keyframes } from 'styled-components';
 import Sidebar from './components/Sidebar';
-import Chat from './components/Chat';
+// Use modularized Chat component
+import Chat from './features/messaging/components/Chat';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { getAuth } from 'firebase/auth';
 import Login from './components/Login';
@@ -33,8 +34,6 @@ import BottomNav, { NavTab } from './components/BottomNav';
 const VideoCall = lazy(() => import('./components/VideoCall'));
 
 // Lazy load panels (only one renders at a time)
-const ThreadsPanel = lazy(() => import('./components/panels/ThreadsPanel'));
-const MentionsPanel = lazy(() => import('./components/panels/MentionsPanel'));
 const SavedPanel = lazy(() => import('./components/panels/SavedPanel'));
 const PeoplePanel = lazy(() => import('./components/panels/PeoplePanel'));
 const SettingsPanel = lazy(() => import('./components/panels/SettingsPanel'));
@@ -87,10 +86,6 @@ const AppContent: React.FC = () => {
     // Render the appropriate panel based on activePanel state
     const renderMainContent = () => {
         switch (activePanel) {
-            case 'threads':
-                return <Suspense fallback={<PanelLoader />}><ThreadsPanel /></Suspense>;
-            case 'mentions':
-                return <Suspense fallback={<PanelLoader />}><MentionsPanel /></Suspense>;
             case 'saved':
                 return <Suspense fallback={<PanelLoader />}><SavedPanel /></Suspense>;
             case 'people':

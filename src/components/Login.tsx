@@ -316,9 +316,9 @@ const AppSubtitle = styled.p`
 const LoginCard = styled.div`
     background: var(--bg-primary);
     border: 1px solid var(--border-light);
-    border-radius: var(--radius-xl);
+    border-radius: var(--radius-lg);
     padding: var(--spacing-xl);
-    box-shadow: var(--shadow-xl);
+    box-shadow: var(--shadow-lg);
 
     @media (max-width: 480px) {
         padding: var(--spacing-lg);

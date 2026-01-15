@@ -167,7 +167,7 @@ const Overlay = styled.div`
 const ModalBox = styled.div`
     background: rgba(30, 35, 60, 0.98);
     backdrop-filter: blur(20px);
-    border-radius: var(--radius-xl);
+    border-radius: var(--radius-lg);
     border: 1px solid rgba(255, 255, 255, 0.1);
     width: 100%;
     max-width: 400px;
@@ -359,6 +359,6 @@ const SubmitButton = styled(Button)`
     color: white;
 
     &:hover:not(:disabled) {
-        background: #4752c4;
+        background: var(--purple-700);
     }
 `;
