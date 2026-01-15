@@ -218,9 +218,16 @@ class UserService {
 
         let hasReceivedData = false;
         let retryCount = 0;
+        let isRetrying = false; // Guard against concurrent retries
         const maxRetries = 3;
 
         const setupListener = () => {
+            // Prevent concurrent retry attempts
+            if (isRetrying) {
+                console.log('Already retrying, skipping duplicate setup');
+                return;
+            }
+
             try {
                 const usersRef = collection(db, 'users');
                 const q = query(usersRef, limit(maxUsers));
@@ -229,17 +236,22 @@ class UserService {
                     (snapshot) => {
                         hasReceivedData = true;
                         retryCount = 0; // Reset retry count on success
+                        isRetrying = false; // Reset retry guard on success
                         console.log('Snapshot received, docs count:', snapshot.docs.length);
 
                         const users = this.processUserDocs(snapshot.docs);
-                        console.log('Users processed:', users.map(u => ({ name: u.displayName, online: u.isOnline })));
+                        console.log('Users processed:', users);
                         onUsersChange(users);
                     },
                     async (error) => {
                         console.error('Snapshot error:', error.code, error.message);
 
+                        // Prevent concurrent retries
+                        if (isRetrying) return;
+
                         // Try to reconnect and retry
                         if (retryCount < maxRetries) {
+                            isRetrying = true;
                             retryCount++;
                             console.log(`Retrying listener (${retryCount}/${maxRetries})...`);
 
@@ -257,9 +269,11 @@ class UserService {
                             if (this.usersUnsubscribe) {
                                 this.usersUnsubscribe();
                             }
+                            isRetrying = false;
                             setupListener();
                         } else {
                             console.error('Max retries reached for user listener');
+                            isRetrying = false;
                             // Final fallback - fetch once
                             const users = await this.fetchUsersOnce();
                             onUsersChange(users);
@@ -268,8 +282,13 @@ class UserService {
                 );
             } catch (error) {
                 console.error('Error setting up user listener:', error);
-                // Try fallback fetch
-                this.fetchUsersOnce().then(users => onUsersChange(users));
+                // Try fallback fetch with proper error handling
+                this.fetchUsersOnce()
+                    .then(users => onUsersChange(users))
+                    .catch(err => {
+                        console.error('Fallback fetch also failed:', err);
+                        onUsersChange([]); // Return empty array on complete failure
+                    });
             }
         };
 

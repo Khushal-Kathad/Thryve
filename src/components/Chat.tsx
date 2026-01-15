@@ -85,6 +85,13 @@ const Chat: React.FC = () => {
 
         const participants = roomData.participants || [];
         const otherUserId = participants.find((id: string) => id !== user.uid);
+
+        // Return null if we can't find the other user's ID
+        if (!otherUserId) {
+            console.warn('Could not find other user ID in DM participants:', participants);
+            return null;
+        }
+
         const memberNames = roomData.memberNames || {};
 
         // Get name from memberNames, or extract from room name, or use fallback
@@ -326,7 +333,14 @@ const Chat: React.FC = () => {
 
     // Start a direct call (for DMs)
     const handleStartDirectCall = async (callType: 'audio' | 'video') => {
-        if (!user || !roomId || roomId === 'null' || isInCall || isStartingCall || !otherUser) return;
+        if (!user || !roomId || roomId === 'null' || isInCall || isStartingCall) return;
+
+        // Validate otherUser exists and has required fields
+        if (!otherUser || !otherUser.odUserId) {
+            console.error('Cannot start call: other user info is missing', { otherUser, roomId });
+            showToast('Unable to start call - user info not loaded yet', 'error');
+            return;
+        }
 
         setIsStartingCall(true);
         try {
@@ -371,6 +385,13 @@ const Chat: React.FC = () => {
     ) => {
         if (!user || !roomId || roomId === 'null' || isInCall || isStartingCall) return;
 
+        // Validate receiverId is provided
+        if (!receiverId) {
+            console.error('Cannot start call: receiver ID is missing');
+            showToast('Unable to start call - user info missing', 'error');
+            return;
+        }
+
         setIsStartingCall(true);
         try {
             const call = await callService.createCall(
@@ -378,23 +399,23 @@ const Chat: React.FC = () => {
                 user.displayName || 'Unknown',
                 user.photoURL || '',
                 receiverId,
-                receiverName,
-                receiverPhoto,
+                receiverName || 'Unknown',
+                receiverPhoto || '',
                 roomId,
                 callType,
                 false
             );
 
             dispatch(setCurrentCall(call));
-            showToast(`Calling ${receiverName}...`, 'info');
+            showToast(`Calling ${receiverName || 'User'}...`, 'info');
 
             callService.listenForCallChanges(call.id, (updatedCall) => {
                 if (updatedCall.status === 'rejected') {
-                    showToast(`${receiverName} declined the call`, 'info');
+                    showToast(`${receiverName || 'User'} declined the call`, 'info');
                 } else if (updatedCall.status === 'ended') {
                     showToast('Call ended', 'info');
                 } else if (updatedCall.status === 'missed') {
-                    showToast(`${receiverName} didn't answer`, 'info');
+                    showToast(`${receiverName || 'User'} didn't answer`, 'info');
                 }
             });
         } catch (error) {
