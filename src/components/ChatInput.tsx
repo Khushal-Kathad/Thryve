@@ -18,7 +18,13 @@ import { uploadToCloudinary } from '../cloudinary';
 import { offlineService } from '../services/offlineService';
 import { typingService } from '../services/typingService';
 
-const EMOJI_LIST = ['😀', '😂', '😍', '🥰', '😎', '🤔', '👍', '👎', '❤️', '🔥', '✨', '🎉', '💯', '🙌', '👏', '🤝'];
+const EMOJI_CATEGORIES = {
+    smileys: ['😀', '😂', '🤣', '😊', '😍', '🥰', '😎', '🤔', '😢', '😭', '😡', '🥳'],
+    gestures: ['👍', '👎', '👋', '🙌', '👏', '🤝', '✌️', '🤞', '💪', '🙏', '❤️', '💔'],
+    symbols: ['🔥', '✨', '⭐', '💯', '🎉', '🎊', '💡', '⚡', '🌟', '💫', '🎯', '✅'],
+};
+
+const EMOJI_LIST = [...EMOJI_CATEGORIES.smileys, ...EMOJI_CATEGORIES.gestures, ...EMOJI_CATEGORIES.symbols];
 
 export interface ReplyData {
     id: string;
@@ -119,7 +125,13 @@ const ChatInput: React.FC<ChatInputProps> = ({ channelName, channelId, chatRef, 
     const sendMessage = async (e: FormEvent | KeyboardEvent) => {
         e.preventDefault();
 
-        if (!channelId || (!input.trim() && !imageFile) || !user) return;
+        if (!channelId || (!input.trim() && !imageFile) || !user) {
+            console.warn('Cannot send message: missing channelId, content, or user');
+            return;
+        }
+
+        const messageText = input.trim();
+        const hasImage = imageFile && imagePreview;
 
         const messageData: {
             roomId: string;
@@ -131,7 +143,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ channelName, channelId, chatRef, 
             replyTo?: ReplyData;
         } = {
             roomId: channelId,
-            message: input.trim(),
+            message: messageText,
             users: user.displayName || 'Anonymous',
             userImage: user.photoURL || '',
             userId: user.uid,
@@ -144,7 +156,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ channelName, channelId, chatRef, 
         }
 
         // Handle image - convert to base64 for offline storage
-        if (imageFile && imagePreview) {
+        if (hasImage) {
             messageData.imageData = {
                 base64: imagePreview,
                 mimeType: imageFile.type,
@@ -165,6 +177,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ channelName, channelId, chatRef, 
 
         if (!isOnline) {
             // Store in offline queue
+            console.log('Offline mode: queueing message');
             try {
                 await offlineService.addPendingMessage(messageData);
                 await updatePendingCount();
@@ -174,10 +187,12 @@ const ChatInput: React.FC<ChatInputProps> = ({ channelName, channelId, chatRef, 
         } else {
             // Try to send immediately
             setUploading(true);
+            console.log('Sending message to channel:', channelId);
             try {
                 let imageUrl: string | null = null;
 
                 if (messageData.imageData) {
+                    console.log('Uploading image to Cloudinary...');
                     // Convert base64 to file for upload
                     const response = await fetch(messageData.imageData.base64);
                     const blob = await response.blob();
@@ -186,12 +201,13 @@ const ChatInput: React.FC<ChatInputProps> = ({ channelName, channelId, chatRef, 
                     });
                     const result = await uploadToCloudinary(file);
                     imageUrl = result.url;
+                    console.log('Image uploaded successfully:', imageUrl?.substring(0, 50));
                 }
 
                 const chatDoc = doc(db, 'rooms', channelId);
                 const messageDoc = doc(collection(chatDoc, 'messages'));
 
-                await setDoc(messageDoc, {
+                const firestoreData = {
                     message: messageData.message,
                     timestamp: Timestamp.fromDate(new Date()),
                     users: messageData.users,
@@ -199,10 +215,15 @@ const ChatInput: React.FC<ChatInputProps> = ({ channelName, channelId, chatRef, 
                     userId: user.uid,
                     ...(imageUrl && { imageUrl }),
                     ...(messageData.replyTo && { replyTo: messageData.replyTo }),
-                });
-            } catch (error) {
+                };
+
+                console.log('Saving message to Firestore...');
+                await setDoc(messageDoc, firestoreData);
+                console.log('Message saved successfully:', messageDoc.id);
+            } catch (error: any) {
                 // Failed - add to offline queue
-                console.error('Send failed, queueing:', error);
+                console.error('Send failed:', error?.message || error);
+                console.log('Adding failed message to offline queue...');
                 try {
                     await offlineService.addPendingMessage(messageData);
                     await updatePendingCount();
@@ -407,16 +428,42 @@ const ChatInput: React.FC<ChatInputProps> = ({ channelName, channelId, chatRef, 
 
                 {showEmoji && (
                     <EmojiPicker>
-                        <EmojiHeader>
-                            <span>Quick reactions</span>
-                        </EmojiHeader>
-                        <EmojiGrid>
-                            {EMOJI_LIST.map((emoji) => (
-                                <EmojiButton key={emoji} type="button" onClick={() => addEmoji(emoji)}>
-                                    {emoji}
-                                </EmojiButton>
-                            ))}
-                        </EmojiGrid>
+                        <EmojiSection>
+                            <EmojiHeader>
+                                <span>😊 Smileys</span>
+                            </EmojiHeader>
+                            <EmojiGrid>
+                                {EMOJI_CATEGORIES.smileys.map((emoji) => (
+                                    <EmojiButton key={emoji} type="button" onClick={() => addEmoji(emoji)}>
+                                        {emoji}
+                                    </EmojiButton>
+                                ))}
+                            </EmojiGrid>
+                        </EmojiSection>
+                        <EmojiSection>
+                            <EmojiHeader>
+                                <span>👋 Gestures</span>
+                            </EmojiHeader>
+                            <EmojiGrid>
+                                {EMOJI_CATEGORIES.gestures.map((emoji) => (
+                                    <EmojiButton key={emoji} type="button" onClick={() => addEmoji(emoji)}>
+                                        {emoji}
+                                    </EmojiButton>
+                                ))}
+                            </EmojiGrid>
+                        </EmojiSection>
+                        <EmojiSection>
+                            <EmojiHeader>
+                                <span>🔥 Symbols</span>
+                            </EmojiHeader>
+                            <EmojiGrid>
+                                {EMOJI_CATEGORIES.symbols.map((emoji) => (
+                                    <EmojiButton key={emoji} type="button" onClick={() => addEmoji(emoji)}>
+                                        {emoji}
+                                    </EmojiButton>
+                                ))}
+                            </EmojiGrid>
+                        </EmojiSection>
                     </EmojiPicker>
                 )}
 
@@ -726,26 +773,44 @@ const EmojiPicker = styled.div`
     border-top: 1px solid var(--border-light);
     background: var(--bg-tertiary);
     animation: ${fadeIn} 0.2s ease-out;
+    max-height: 300px;
+    overflow-y: auto;
+
+    &::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+        background: var(--border-default);
+        border-radius: 3px;
+    }
+`;
+
+const EmojiSection = styled.div`
+    &:not(:last-child) {
+        border-bottom: 1px solid var(--border-light);
+    }
 `;
 
 const EmojiHeader = styled.div`
-    padding: var(--spacing-sm) var(--spacing-md);
-    border-bottom: 1px solid var(--border-light);
+    padding: var(--spacing-xs) var(--spacing-md);
+    background: var(--bg-secondary);
+    position: sticky;
+    top: 0;
+    z-index: 1;
 
     span {
-        font-size: 0.8rem;
+        font-size: 0.75rem;
         font-weight: 600;
         color: var(--text-muted);
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
     }
 `;
 
 const EmojiGrid = styled.div`
     display: grid;
-    grid-template-columns: repeat(8, 1fr);
+    grid-template-columns: repeat(6, 1fr);
     gap: 4px;
-    padding: var(--spacing-sm);
+    padding: var(--spacing-xs) var(--spacing-sm);
 
     @media (max-width: 480px) {
         grid-template-columns: repeat(6, 1fr);
@@ -756,22 +821,23 @@ const EmojiButton = styled.button`
     display: flex;
     align-items: center;
     justify-content: center;
-    height: 40px;
+    height: 38px;
     border-radius: var(--radius-md);
-    font-size: 1.4rem;
+    font-size: 1.35rem;
     transition: all var(--transition-fast);
+    background: transparent;
 
     &:hover {
         background: var(--purple-50);
-        transform: scale(1.2);
+        transform: scale(1.15);
     }
 
     &:active {
-        transform: scale(0.9);
+        transform: scale(0.95);
     }
 
     @media (max-width: 480px) {
-        height: 36px;
+        height: 34px;
         font-size: 1.2rem;
     }
 `;

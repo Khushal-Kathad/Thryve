@@ -83,12 +83,39 @@ const Chat: React.FC = () => {
         const roomData = roomDetails?.data();
         if (!roomData) return null;
 
-        const participants = roomData.participants || [];
-        const otherUserId = participants.find((id: string) => id !== user.uid);
+        // Try multiple sources to find the other user's ID
+        let otherUserId: string | undefined;
 
-        // Return null if we can't find the other user's ID
+        // 1. Try participants array
+        const participants = roomData.participants || [];
+        if (participants.length > 0) {
+            otherUserId = participants.find((id: string) => id !== user.uid);
+        }
+
+        // 2. Try members array if participants didn't work
         if (!otherUserId) {
-            console.warn('Could not find other user ID in DM participants:', participants);
+            const members = roomData.members || [];
+            if (members.length > 0) {
+                otherUserId = members.find((id: string) => id !== user.uid);
+            }
+        }
+
+        // 3. Try to extract from room ID if it's in DM format (dm_userId1_userId2)
+        if (!otherUserId && roomId && roomId.startsWith('dm_')) {
+            const parts = roomId.split('_');
+            if (parts.length === 3) {
+                // Format: dm_userId1_userId2
+                otherUserId = parts[1] === user.uid ? parts[2] : parts[1];
+            }
+        }
+
+        // Return null if we still can't find the other user's ID
+        if (!otherUserId) {
+            console.warn('Could not find other user ID in DM room:', {
+                roomId,
+                participants,
+                members: roomData.members,
+            });
             return null;
         }
 

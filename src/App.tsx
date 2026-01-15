@@ -74,7 +74,7 @@ const AppContent: React.FC = () => {
         setMobileTab(tab);
         if (tab === 'chats' || tab === 'groups') {
             setIsSidebarOpen(true);
-            dispatch(setActivePanel(null));
+            dispatch(setActivePanel('none'));
         } else if (tab === 'calls') {
             dispatch(setActivePanel('people'));
             setIsSidebarOpen(false);

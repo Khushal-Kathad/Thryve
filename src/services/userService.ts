@@ -341,26 +341,53 @@ class UserService {
         const roomRef = doc(db, 'rooms', dmRoomId);
         const roomDoc = await getDoc(roomRef);
 
+        const dmRoomData = {
+            name: `${currentUserName} & ${otherUserName}`,
+            isDM: true,
+            participants: [currentUserId, otherUserId],
+            members: [currentUserId, otherUserId],
+            memberNames: {
+                [currentUserId]: currentUserName,
+                [otherUserId]: otherUserName,
+            },
+            participantPhotos: {
+                [currentUserId]: currentUserPhoto || '',
+                [otherUserId]: otherUserPhoto || '',
+            },
+            createdAt: Date.now(),
+            createdBy: currentUserId,
+            passwordHash: null,
+            isPrivate: true,
+        };
+
         if (!roomDoc.exists()) {
             // Create new DM room
-            await setDoc(roomRef, {
-                name: `${currentUserName} & ${otherUserName}`,
-                isDM: true,
-                participants: [currentUserId, otherUserId],
-                members: [currentUserId, otherUserId],
-                memberNames: {
-                    [currentUserId]: currentUserName,
-                    [otherUserId]: otherUserName,
-                },
-                participantPhotos: {
-                    [currentUserId]: currentUserPhoto || '',
-                    [otherUserId]: otherUserPhoto || '',
-                },
-                createdAt: Date.now(),
-                createdBy: currentUserId,
-                passwordHash: null,
-                isPrivate: true,
-            });
+            await setDoc(roomRef, dmRoomData);
+        } else {
+            // Check if existing room is missing required fields and update if needed
+            const existingData = roomDoc.data();
+            const needsUpdate = !existingData.participants?.length ||
+                               !existingData.members?.length ||
+                               !existingData.memberNames;
+
+            if (needsUpdate) {
+                console.log('Updating existing DM room with missing fields:', dmRoomId);
+                await setDoc(roomRef, {
+                    ...existingData,
+                    participants: [currentUserId, otherUserId],
+                    members: [currentUserId, otherUserId],
+                    memberNames: {
+                        ...existingData.memberNames,
+                        [currentUserId]: currentUserName,
+                        [otherUserId]: otherUserName,
+                    },
+                    participantPhotos: {
+                        ...existingData.participantPhotos,
+                        [currentUserId]: currentUserPhoto || '',
+                        [otherUserId]: otherUserPhoto || '',
+                    },
+                }, { merge: true });
+            }
         }
 
         return dmRoomId;
