@@ -1,28 +1,33 @@
 import React, { useState, useRef, useCallback, ChangeEvent } from 'react';
-import styled, { keyframes } from 'styled-components';
+import styled, { keyframes, css } from 'styled-components';
 import { Avatar } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import LogoutIcon from '@mui/icons-material/Logout';
 import CloudOffIcon from '@mui/icons-material/CloudOff';
+import MenuIcon from '@mui/icons-material/Menu';
+import CloseIcon from '@mui/icons-material/Close';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { getAuth, signOut } from 'firebase/auth';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import { selectIsOnline, selectPendingCount } from '../features/appSlice';
 import useClickOutside from '../hooks/useClickOutside';
 import ConfirmDialog from './ui/ConfirmDialog';
 
 interface HeaderProps {
     onSearch?: (query: string) => void;
+    onMenuClick?: () => void;
+    isSidebarOpen?: boolean;
 }
 
-const Header: React.FC<HeaderProps> = ({ onSearch }) => {
+const Header: React.FC<HeaderProps> = ({ onSearch, onMenuClick, isSidebarOpen }) => {
     const auth = getAuth();
     const [user] = useAuthState(auth);
     const [searchQuery, setSearchQuery] = useState('');
     const [showUserMenu, setShowUserMenu] = useState(false);
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+    const [isSearchFocused, setIsSearchFocused] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
 
     const isOnline = useSelector(selectIsOnline);
@@ -60,19 +65,57 @@ const Header: React.FC<HeaderProps> = ({ onSearch }) => {
             {!isOnline && (
                 <OfflineBanner>
                     <CloudOffIcon />
-                    <span>You're offline. Messages will be sent when you reconnect.</span>
+                    <span>You're offline. Messages will sync when you reconnect.</span>
                     {pendingCount > 0 && <PendingBadge>{pendingCount} pending</PendingBadge>}
                 </OfflineBanner>
             )}
             <HeaderContainer $hasOfflineBanner={!isOnline}>
-                <HeaderLeft ref={menuRef}>
+                <HeaderLeft>
+                    {/* Mobile Menu Button */}
+                    <MobileMenuButton onClick={onMenuClick} aria-label="Toggle menu">
+                        {isSidebarOpen ? <CloseIcon /> : <MenuIcon />}
+                    </MobileMenuButton>
+
+                    {/* Logo */}
+                    <Logo>
+                        <LogoIcon>T</LogoIcon>
+                        <LogoText>Thryve</LogoText>
+                    </Logo>
+                </HeaderLeft>
+
+                <HeaderCenter $isSearchFocused={isSearchFocused}>
+                    <SearchContainer $isFocused={isSearchFocused}>
+                        <SearchIconWrapper>
+                            <SearchIcon />
+                        </SearchIconWrapper>
+                        <SearchInput
+                            type="text"
+                            placeholder="Search conversations..."
+                            value={searchQuery}
+                            onChange={handleSearch}
+                            onFocus={() => setIsSearchFocused(true)}
+                            onBlur={() => setIsSearchFocused(false)}
+                        />
+                        <SearchShortcut>⌘K</SearchShortcut>
+                    </SearchContainer>
+                </HeaderCenter>
+
+                <HeaderRight ref={menuRef}>
+                    <IconButton title="Notifications" $hasNotification>
+                        <NotificationsNoneIcon />
+                        <NotificationBadge>3</NotificationBadge>
+                    </IconButton>
+                    <IconButton title="Help" className="hide-mobile">
+                        <HelpOutlineIcon />
+                    </IconButton>
+
                     <UserSection onClick={() => setShowUserMenu(!showUserMenu)}>
                         <StyledAvatar
                             alt={user?.displayName || ''}
                             src={user?.photoURL || ''}
                         />
                         <UserInfo>
-                            <UserName>{user?.displayName?.split(' ')[0] || 'User'}</UserName>
+                            <UserName>{user?.displayName?.split(' ')[0] || user?.email?.split('@')[0] || 'User'}</UserName>
                             <UserStatus>
                                 <StatusDot $isOnline={isOnline} />
                                 {isOnline ? 'Online' : 'Offline'}
@@ -85,46 +128,22 @@ const Header: React.FC<HeaderProps> = ({ onSearch }) => {
                             <MobileOverlay onClick={closeMenu} />
                             <UserMenu>
                                 <MenuHeader>
-                                    <Avatar
+                                    <MenuAvatar
                                         src={user?.photoURL || ''}
-                                        sx={{ width: 48, height: 48 }}
                                     />
-                                    <div>
+                                    <MenuUserInfo>
                                         <h4>{user?.displayName}</h4>
                                         <p>{user?.email}</p>
-                                    </div>
+                                    </MenuUserInfo>
                                 </MenuHeader>
                                 <MenuDivider />
-                                <MenuItem onClick={requestLogout}>
+                                <MenuItem onClick={requestLogout} $danger>
                                     <LogoutIcon />
                                     <span>Sign Out</span>
                                 </MenuItem>
                             </UserMenu>
                         </>
                     )}
-                </HeaderLeft>
-
-                <HeaderCenter>
-                    <SearchContainer>
-                        <SearchIcon />
-                        <SearchInput
-                            type="text"
-                            placeholder="Search messages, channels..."
-                            value={searchQuery}
-                            onChange={handleSearch}
-                        />
-                        <SearchShortcut>Ctrl+K</SearchShortcut>
-                    </SearchContainer>
-                </HeaderCenter>
-
-                <HeaderRight>
-                    <IconButton title="Notifications">
-                        <NotificationsNoneIcon />
-                        <NotificationBadge>3</NotificationBadge>
-                    </IconButton>
-                    <IconButton title="Help">
-                        <HelpOutlineIcon />
-                    </IconButton>
                 </HeaderRight>
             </HeaderContainer>
 
@@ -148,7 +167,7 @@ export default Header;
 const fadeIn = keyframes`
     from {
         opacity: 0;
-        transform: translateY(-10px);
+        transform: translateY(-8px);
     }
     to {
         opacity: 1;
@@ -169,10 +188,19 @@ const slideUp = keyframes`
 
 const pulse = keyframes`
     0%, 100% {
-        box-shadow: 0 0 0 0 rgba(59, 165, 92, 0.4);
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
     }
     50% {
-        box-shadow: 0 0 0 4px rgba(59, 165, 92, 0);
+        box-shadow: 0 0 0 4px rgba(16, 185, 129, 0);
+    }
+`;
+
+const shimmer = keyframes`
+    0% {
+        background-position: -200% 0;
+    }
+    100% {
+        background-position: 200% 0;
     }
 `;
 
@@ -182,28 +210,43 @@ const OfflineBanner = styled.div`
     top: 0;
     left: 0;
     right: 0;
-    height: 40px;
-    background: rgba(233, 69, 96, 0.9);
-    backdrop-filter: blur(10px);
+    height: 44px;
+    background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%);
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: var(--spacing-sm);
+    gap: var(--spacing-2);
     color: white;
-    font-size: 0.85rem;
-    z-index: 101;
+    font-size: var(--text-sm);
+    font-weight: 500;
+    z-index: 1001;
+    box-shadow: var(--shadow-md);
 
     svg {
-        font-size: 1.2rem;
+        font-size: 1.25rem;
+    }
+
+    @media (max-width: 640px) {
+        font-size: var(--text-xs);
+        padding: 0 var(--spacing-4);
+
+        span {
+            display: none;
+        }
+
+        &::after {
+            content: 'Offline mode';
+        }
     }
 `;
 
 const PendingBadge = styled.span`
     background: rgba(255, 255, 255, 0.2);
-    padding: 2px 8px;
+    padding: 4px 12px;
     border-radius: var(--radius-full);
-    font-size: 0.75rem;
-    font-weight: 500;
+    font-size: var(--text-xs);
+    font-weight: 600;
+    backdrop-filter: blur(10px);
 `;
 
 const MobileOverlay = styled.div`
@@ -214,7 +257,9 @@ const MobileOverlay = styled.div`
         position: fixed;
         inset: 0;
         background: rgba(0, 0, 0, 0.5);
-        z-index: 999;
+        backdrop-filter: blur(4px);
+        z-index: 998;
+        animation: fadeIn 0.2s ease-out;
     }
 `;
 
@@ -223,56 +268,289 @@ const HeaderContainer = styled.header<{ $hasOfflineBanner?: boolean }>`
     align-items: center;
     justify-content: space-between;
     height: var(--header-height);
-    padding: 0 var(--spacing-lg);
-    background: var(--glass-bg);
-    border-bottom: 1px solid var(--glass-border);
+    padding: 0 var(--spacing-4);
+    padding-left: max(var(--spacing-4), env(safe-area-inset-left, 0));
+    padding-right: max(var(--spacing-4), env(safe-area-inset-right, 0));
+    background: var(--glass-bg-strong);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border-light);
     position: fixed;
-    top: ${(props) => (props.$hasOfflineBanner ? '40px' : '0')};
+    top: ${(props) => (props.$hasOfflineBanner ? '44px' : '0')};
     left: 0;
     right: 0;
-    z-index: 100;
-    transition: top 0.3s ease;
+    z-index: 1000;
+    transition: top var(--transition-normal), background var(--transition-normal);
+    /* GPU acceleration */
+    transform: translateZ(0);
+    will-change: transform;
+
+    @media (min-width: 768px) {
+        padding: 0 var(--spacing-6);
+    }
+
+    @media (max-width: 768px) and (orientation: landscape) {
+        height: var(--header-height);
+    }
 `;
 
 const HeaderLeft = styled.div`
     display: flex;
     align-items: center;
-    flex: 0.25;
-    position: relative;
+    gap: var(--spacing-3);
+    flex: 0 0 auto;
 `;
 
-const UserSection = styled.div`
+const MobileMenuButton = styled.button`
     display: flex;
     align-items: center;
-    gap: var(--spacing-sm);
-    padding: var(--spacing-xs) var(--spacing-sm);
-    border-radius: var(--radius-md);
-    cursor: pointer;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius-lg);
+    color: var(--text-secondary);
     transition: all var(--transition-fast);
+    /* Touch optimization */
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    user-select: none;
+
+    svg {
+        font-size: 1.5rem;
+        transition: transform 0.2s ease;
+    }
 
     &:hover {
-        background: var(--glass-bg-hover);
+        background: var(--surface-hover);
+        color: var(--accent-primary);
+    }
+
+    &:active {
+        transform: scale(0.92);
+
+        svg {
+            transform: scale(0.95);
+        }
+    }
+
+    @media (min-width: 768px) {
+        display: none;
     }
 `;
 
-const StyledAvatar = styled(Avatar)`
-    width: 36px !important;
-    height: 36px !important;
-    border: 2px solid var(--accent-primary);
-    box-shadow: var(--shadow-glow);
+const Logo = styled.div`
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
 `;
 
-const UserInfo = styled.div`
+const LogoIcon = styled.div`
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-lg);
+    background: var(--gradient-primary);
     display: flex;
-    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--text-lg);
+    font-weight: 700;
+    color: white;
+    box-shadow: var(--shadow-purple);
+`;
+
+const LogoText = styled.span`
+    font-size: var(--text-xl);
+    font-weight: 700;
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+
+    @media (max-width: 640px) {
+        display: none;
+    }
+`;
+
+const HeaderCenter = styled.div<{ $isSearchFocused?: boolean }>`
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    padding: 0 var(--spacing-4);
+    max-width: 600px;
+    margin: 0 auto;
+
+    @media (max-width: 768px) {
+        ${props => props.$isSearchFocused && css`
+            position: fixed;
+            left: 0;
+            right: 0;
+            top: var(--header-height);
+            padding: var(--spacing-3);
+            background: var(--bg-primary);
+            border-bottom: 1px solid var(--border-light);
+            z-index: 999;
+        `}
+    }
+`;
+
+const SearchContainer = styled.div<{ $isFocused?: boolean }>`
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+    width: 100%;
+    padding: var(--spacing-2) var(--spacing-4);
+    background: var(--surface-secondary);
+    border: 2px solid transparent;
+    border-radius: var(--radius-full);
+    transition: all var(--transition-normal);
+
+    ${props => props.$isFocused && css`
+        background: var(--bg-primary);
+        border-color: var(--accent-primary);
+        box-shadow: var(--shadow-glow);
+    `}
+
+    &:hover:not(:focus-within) {
+        background: var(--surface-hover);
+    }
+
+    @media (max-width: 768px) {
+        padding: var(--spacing-3) var(--spacing-4);
+    }
+`;
+
+const SearchIconWrapper = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    transition: color var(--transition-fast);
+
+    svg {
+        font-size: 1.25rem;
+    }
+
+    ${SearchContainer}:focus-within & {
+        color: var(--accent-primary);
+    }
+`;
+
+const SearchInput = styled.input`
+    flex: 1;
+    font-size: var(--text-sm);
+    font-weight: 400;
+    min-width: 0;
+
+    &::placeholder {
+        color: var(--text-muted);
+    }
+
+    @media (max-width: 768px) {
+        font-size: var(--text-base);
+    }
+`;
+
+const SearchShortcut = styled.span`
+    padding: 4px 8px;
+    background: var(--surface-hover);
+    border-radius: var(--radius-sm);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-weight: 500;
 
     @media (max-width: 768px) {
         display: none;
     }
 `;
 
+const HeaderRight = styled.div`
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+    flex: 0 0 auto;
+    position: relative;
+
+    .hide-mobile {
+        @media (max-width: 640px) {
+            display: none;
+        }
+    }
+`;
+
+const IconButton = styled.button<{ $hasNotification?: boolean }>`
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-lg);
+    color: var(--text-secondary);
+    transition: all var(--transition-fast);
+
+    svg {
+        font-size: 1.4rem;
+    }
+
+    &:hover {
+        background: var(--surface-hover);
+        color: var(--accent-primary);
+    }
+`;
+
+const NotificationBadge = styled.span`
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    background: var(--accent-danger);
+    border-radius: var(--radius-full);
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid var(--bg-primary);
+`;
+
+const UserSection = styled.button`
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-3);
+    padding: var(--spacing-2);
+    border-radius: var(--radius-xl);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+
+    &:hover {
+        background: var(--surface-hover);
+    }
+`;
+
+const StyledAvatar = styled(Avatar)`
+    width: 38px !important;
+    height: 38px !important;
+    border: 2px solid var(--accent-primary);
+    box-shadow: var(--shadow-purple);
+`;
+
+const UserInfo = styled.div`
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+
+    @media (max-width: 1024px) {
+        display: none;
+    }
+`;
+
 const UserName = styled.span`
-    font-size: 0.9rem;
+    font-size: var(--text-sm);
     font-weight: 600;
     color: var(--text-primary);
 `;
@@ -280,8 +558,8 @@ const UserName = styled.span`
 const UserStatus = styled.span`
     display: flex;
     align-items: center;
-    gap: 4px;
-    font-size: 0.75rem;
+    gap: 6px;
+    font-size: var(--text-xs);
     color: var(--text-muted);
 `;
 
@@ -289,19 +567,21 @@ const StatusDot = styled.span<{ $isOnline?: boolean }>`
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: ${(props) => (props.$isOnline ? 'var(--accent-success)' : 'var(--text-muted)')};
-    animation: ${(props) => (props.$isOnline ? pulse : 'none')} 2s ease-in-out infinite;
+    background: ${(props) => (props.$isOnline ? 'var(--status-online)' : 'var(--status-offline)')};
+    ${props => props.$isOnline && css`
+        animation: ${pulse} 2s ease-in-out infinite;
+    `}
 `;
 
 const UserMenu = styled.div`
     position: absolute;
-    top: calc(100% + var(--spacing-sm));
-    left: 0;
+    top: calc(100% + var(--spacing-2));
+    right: 0;
     min-width: 280px;
-    background: var(--bg-secondary);
-    border: 1px solid var(--glass-border);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-lg);
+    background: var(--bg-primary);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-xl);
     overflow: hidden;
     animation: ${fadeIn} 0.2s ease-out;
     z-index: 1000;
@@ -313,27 +593,36 @@ const UserMenu = styled.div`
         left: 0;
         right: 0;
         min-width: 100%;
-        border-radius: var(--radius-xl) var(--radius-xl) 0 0;
-        animation: ${slideUp} 0.3s ease-out;
+        border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
+        animation: ${slideUp} 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
 `;
 
 const MenuHeader = styled.div`
     display: flex;
     align-items: center;
-    gap: var(--spacing-md);
-    padding: var(--spacing-lg);
-    background: var(--glass-bg);
+    gap: var(--spacing-4);
+    padding: var(--spacing-5);
+    background: var(--gradient-subtle);
+`;
 
+const MenuAvatar = styled(Avatar)`
+    width: 52px !important;
+    height: 52px !important;
+    border: 3px solid var(--accent-primary);
+    box-shadow: var(--shadow-purple);
+`;
+
+const MenuUserInfo = styled.div`
     h4 {
-        font-size: 1rem;
+        font-size: var(--text-base);
         font-weight: 600;
         color: var(--text-primary);
-        margin: 0;
+        margin: 0 0 4px 0;
     }
 
     p {
-        font-size: 0.8rem;
+        font-size: var(--text-sm);
         color: var(--text-muted);
         margin: 0;
     }
@@ -341,129 +630,31 @@ const MenuHeader = styled.div`
 
 const MenuDivider = styled.div`
     height: 1px;
-    background: var(--glass-border);
+    background: var(--border-light);
 `;
 
-const MenuItem = styled.button`
+const MenuItem = styled.button<{ $danger?: boolean }>`
     width: 100%;
     display: flex;
     align-items: center;
-    gap: var(--spacing-md);
-    padding: var(--spacing-md) var(--spacing-lg);
-    color: var(--text-secondary);
-    font-size: 0.9rem;
+    gap: var(--spacing-3);
+    padding: var(--spacing-4) var(--spacing-5);
+    color: ${props => props.$danger ? 'var(--accent-danger)' : 'var(--text-secondary)'};
+    font-size: var(--text-sm);
+    font-weight: 500;
     transition: all var(--transition-fast);
 
     svg {
-        font-size: 1.2rem;
+        font-size: 1.25rem;
     }
 
     &:hover {
-        background: var(--glass-bg-hover);
-        color: var(--accent-danger);
+        background: ${props => props.$danger ? 'rgba(239, 68, 68, 0.1)' : 'var(--surface-hover)'};
+        color: ${props => props.$danger ? 'var(--accent-danger)' : 'var(--accent-primary)'};
     }
-`;
-
-const HeaderCenter = styled.div`
-    flex: 0.5;
-    display: flex;
-    justify-content: center;
-    padding: 0 var(--spacing-lg);
-`;
-
-const SearchContainer = styled.div`
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-    width: 100%;
-    max-width: 500px;
-    padding: var(--spacing-sm) var(--spacing-md);
-    background: var(--glass-bg);
-    border: 1px solid var(--glass-border);
-    border-radius: var(--radius-full);
-    transition: all var(--transition-normal);
-
-    svg {
-        color: var(--text-muted);
-        font-size: 1.2rem;
-    }
-
-    &:focus-within {
-        border-color: var(--accent-primary);
-        box-shadow: var(--shadow-glow);
-        background: var(--glass-bg-hover);
-
-        svg {
-            color: var(--accent-primary);
-        }
-    }
-`;
-
-const SearchInput = styled.input`
-    flex: 1;
-    font-size: 0.9rem;
-
-    &::placeholder {
-        color: var(--text-muted);
-    }
-`;
-
-const SearchShortcut = styled.span`
-    padding: 2px 8px;
-    background: var(--glass-bg);
-    border: 1px solid var(--glass-border);
-    border-radius: var(--radius-sm);
-    font-size: 0.7rem;
-    color: var(--text-muted);
-    font-family: monospace;
 
     @media (max-width: 768px) {
-        display: none;
+        padding: var(--spacing-5) var(--spacing-6);
+        font-size: var(--text-base);
     }
-`;
-
-const HeaderRight = styled.div`
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-    flex: 0.25;
-    justify-content: flex-end;
-`;
-
-const IconButton = styled.button`
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 40px;
-    height: 40px;
-    border-radius: var(--radius-md);
-    color: var(--text-secondary);
-    transition: all var(--transition-fast);
-
-    svg {
-        font-size: 1.4rem;
-    }
-
-    &:hover {
-        background: var(--glass-bg-hover);
-        color: var(--text-primary);
-    }
-`;
-
-const NotificationBadge = styled.span`
-    position: absolute;
-    top: 4px;
-    right: 4px;
-    min-width: 16px;
-    height: 16px;
-    padding: 0 4px;
-    background: var(--accent-danger);
-    border-radius: var(--radius-full);
-    font-size: 0.65rem;
-    font-weight: 600;
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
 `;

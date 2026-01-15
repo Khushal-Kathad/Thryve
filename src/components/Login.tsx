@@ -4,6 +4,9 @@ import { provider } from '../firebase';
 import { getAuth, signInWithPopup, AuthError } from "firebase/auth";
 import GoogleIcon from '@mui/icons-material/Google';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
+import GroupsIcon from '@mui/icons-material/Groups';
+import VideocamOutlinedIcon from '@mui/icons-material/VideocamOutlined';
+import SecurityIcon from '@mui/icons-material/Security';
 import { useToast } from '../context/ToastContext';
 
 const getErrorMessage = (errorCode: string): string => {
@@ -42,53 +45,72 @@ const Login: React.FC = () => {
 
     return (
         <LoginContainer>
-            <BackgroundOrbs>
-                <Orb className="orb1" />
-                <Orb className="orb2" />
-                <Orb className="orb3" />
-            </BackgroundOrbs>
+            <BackgroundPattern>
+                <PatternCircle className="circle1" />
+                <PatternCircle className="circle2" />
+                <PatternCircle className="circle3" />
+                <PatternDot className="dots1" />
+                <PatternDot className="dots2" />
+            </BackgroundPattern>
 
-            <LoginCard>
-                <LogoContainer>
-                    <IconWrapper>
+            <LoginContent>
+                <BrandingSection>
+                    <LogoWrapper>
                         <ChatBubbleOutlineIcon />
-                    </IconWrapper>
-                    <AppName>Thryve Chat</AppName>
-                    <Tagline>Connect. Collaborate. Create.</Tagline>
-                </LogoContainer>
+                    </LogoWrapper>
+                    <AppTitle>Thryve</AppTitle>
+                    <AppSubtitle>Connect. Collaborate. Create.</AppSubtitle>
+                </BrandingSection>
 
-                <WelcomeText>
-                    <h2>Welcome Back</h2>
-                    <p>Sign in to continue to your workspace</p>
-                </WelcomeText>
+                <LoginCard>
+                    <CardHeader>
+                        <WelcomeTitle>Welcome Back</WelcomeTitle>
+                        <WelcomeSubtitle>Sign in to continue to your workspace</WelcomeSubtitle>
+                    </CardHeader>
 
-                <GoogleButton onClick={signIn} disabled={isLoading}>
-                    <GoogleIcon />
-                    <span>{isLoading ? 'Signing in...' : 'Continue with Google'}</span>
-                </GoogleButton>
+                    <GoogleButton onClick={signIn} disabled={isLoading}>
+                        <GoogleIconWrapper>
+                            <GoogleIcon />
+                        </GoogleIconWrapper>
+                        <ButtonText>{isLoading ? 'Signing in...' : 'Continue with Google'}</ButtonText>
+                        {isLoading && <LoadingSpinner />}
+                    </GoogleButton>
 
-                <Divider>
-                    <span>Secure Authentication</span>
-                </Divider>
+                    <SecurityNote>
+                        <SecurityIcon />
+                        <span>Secured with Google Authentication</span>
+                    </SecurityNote>
+                </LoginCard>
 
-                <Features>
-                    <Feature>
-                        <FeatureIcon>💬</FeatureIcon>
-                        <span>Real-time messaging</span>
-                    </Feature>
-                    <Feature>
-                        <FeatureIcon>🖼️</FeatureIcon>
-                        <span>Share images</span>
-                    </Feature>
-                    <Feature>
-                        <FeatureIcon>😊</FeatureIcon>
-                        <span>Emoji reactions</span>
-                    </Feature>
-                </Features>
-            </LoginCard>
+                <FeaturesGrid>
+                    <FeatureCard>
+                        <FeatureIconWrapper>
+                            <ChatBubbleOutlineIcon />
+                        </FeatureIconWrapper>
+                        <FeatureTitle>Real-time Chat</FeatureTitle>
+                        <FeatureDescription>Instant messaging with your team</FeatureDescription>
+                    </FeatureCard>
+
+                    <FeatureCard>
+                        <FeatureIconWrapper>
+                            <VideocamOutlinedIcon />
+                        </FeatureIconWrapper>
+                        <FeatureTitle>Video Calls</FeatureTitle>
+                        <FeatureDescription>HD video & voice calls</FeatureDescription>
+                    </FeatureCard>
+
+                    <FeatureCard>
+                        <FeatureIconWrapper>
+                            <GroupsIcon />
+                        </FeatureIconWrapper>
+                        <FeatureTitle>Group Channels</FeatureTitle>
+                        <FeatureDescription>Create public & private groups</FeatureDescription>
+                    </FeatureCard>
+                </FeaturesGrid>
+            </LoginContent>
 
             <Footer>
-                <p>Built with ❤️ using React & Firebase</p>
+                <FooterText>Built with React & Firebase</FooterText>
             </Footer>
         </LoginContainer>
     );
@@ -99,10 +121,10 @@ export default Login;
 // Animations
 const float = keyframes`
     0%, 100% {
-        transform: translateY(0) rotate(0deg);
+        transform: translateY(0);
     }
     50% {
-        transform: translateY(-20px) rotate(5deg);
+        transform: translateY(-20px);
     }
 `;
 
@@ -128,6 +150,15 @@ const fadeInUp = keyframes`
     }
 `;
 
+const spin = keyframes`
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+`;
+
 const shimmer = keyframes`
     0% {
         background-position: -200% 0;
@@ -144,139 +175,175 @@ const LoginContainer = styled.div`
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    background: var(--gradient-primary);
+    background: linear-gradient(135deg, var(--bg-primary) 0%, var(--purple-50) 50%, var(--bg-primary) 100%);
     position: relative;
     overflow: hidden;
     padding: var(--spacing-lg);
+
+    @media (max-width: 480px) {
+        padding: var(--spacing-md);
+    }
 `;
 
-const BackgroundOrbs = styled.div`
+const BackgroundPattern = styled.div`
     position: absolute;
     inset: 0;
     overflow: hidden;
     z-index: 0;
 `;
 
-const Orb = styled.div`
+const PatternCircle = styled.div`
     position: absolute;
     border-radius: 50%;
-    filter: blur(100px);
-    opacity: 0.6;
-    animation: ${float} 8s ease-in-out infinite;
+    border: 1px solid var(--purple-100);
+    opacity: 0.5;
 
-    &.orb1 {
-        width: 400px;
-        height: 400px;
-        background: rgba(88, 101, 242, 0.3);
-        top: -100px;
-        left: -100px;
-        animation-delay: 0s;
+    &.circle1 {
+        width: 600px;
+        height: 600px;
+        top: -200px;
+        right: -200px;
+        animation: ${pulse} 8s ease-in-out infinite;
     }
 
-    &.orb2 {
-        width: 300px;
-        height: 300px;
-        background: rgba(233, 69, 96, 0.25);
-        bottom: -50px;
-        right: -50px;
+    &.circle2 {
+        width: 400px;
+        height: 400px;
+        bottom: -150px;
+        left: -150px;
+        animation: ${pulse} 6s ease-in-out infinite;
         animation-delay: -2s;
     }
 
-    &.orb3 {
+    &.circle3 {
         width: 200px;
         height: 200px;
-        background: rgba(59, 165, 92, 0.2);
         top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        animation: ${pulse} 6s ease-in-out infinite;
+        left: 10%;
+        animation: ${float} 10s ease-in-out infinite;
     }
 `;
 
-const LoginCard = styled.div`
+const PatternDot = styled.div`
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent-primary);
+    opacity: 0.3;
+
+    &.dots1 {
+        top: 20%;
+        right: 15%;
+        animation: ${pulse} 3s ease-in-out infinite;
+    }
+
+    &.dots2 {
+        bottom: 30%;
+        left: 20%;
+        animation: ${pulse} 4s ease-in-out infinite;
+        animation-delay: -1s;
+    }
+`;
+
+const LoginContent = styled.div`
     position: relative;
     z-index: 1;
-    background: var(--glass-bg);
-    border: 1px solid var(--glass-border);
-    border-radius: var(--radius-xl);
-    padding: var(--spacing-xl) var(--spacing-xl);
     width: 100%;
-    max-width: 420px;
-    box-shadow: var(--glass-shadow);
+    max-width: 480px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xl);
     animation: ${fadeInUp} 0.6s ease-out;
-
-    &::before {
-        content: '';
-        position: absolute;
-        inset: 0;
-        border-radius: inherit;
-        padding: 1px;
-        background: linear-gradient(
-            135deg,
-            rgba(255, 255, 255, 0.1),
-            rgba(255, 255, 255, 0.05),
-            transparent
-        );
-        -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-        -webkit-mask-composite: xor;
-        mask-composite: exclude;
-        pointer-events: none;
-    }
 `;
 
-const LogoContainer = styled.div`
+const BrandingSection = styled.div`
     text-align: center;
-    margin-bottom: var(--spacing-xl);
 `;
 
-const IconWrapper = styled.div`
+const LogoWrapper = styled.div`
     width: 80px;
     height: 80px;
-    border-radius: var(--radius-lg);
-    background: var(--gradient-accent);
+    border-radius: var(--radius-xl);
+    background: var(--gradient-primary);
     display: flex;
     align-items: center;
     justify-content: center;
     margin: 0 auto var(--spacing-md);
     box-shadow: var(--shadow-glow);
-    animation: ${pulse} 3s ease-in-out infinite;
+    animation: ${float} 6s ease-in-out infinite;
 
     svg {
         font-size: 40px;
         color: white;
     }
+
+    @media (max-width: 480px) {
+        width: 64px;
+        height: 64px;
+
+        svg {
+            font-size: 32px;
+        }
+    }
 `;
 
-const AppName = styled.h1`
-    font-size: 2rem;
-    font-weight: 700;
-    background: var(--gradient-accent);
+const AppTitle = styled.h1`
+    font-size: 2.5rem;
+    font-weight: 800;
+    background: var(--gradient-primary);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
     margin-bottom: var(--spacing-xs);
+    letter-spacing: -0.5px;
+
+    @media (max-width: 480px) {
+        font-size: 2rem;
+    }
 `;
 
-const Tagline = styled.p`
+const AppSubtitle = styled.p`
     color: var(--text-secondary);
-    font-size: 0.9rem;
+    font-size: 1rem;
+    font-weight: 500;
+
+    @media (max-width: 480px) {
+        font-size: 0.9rem;
+    }
 `;
 
-const WelcomeText = styled.div`
+const LoginCard = styled.div`
+    background: var(--bg-primary);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-xl);
+    padding: var(--spacing-xl);
+    box-shadow: var(--shadow-xl);
+
+    @media (max-width: 480px) {
+        padding: var(--spacing-lg);
+    }
+`;
+
+const CardHeader = styled.div`
     text-align: center;
     margin-bottom: var(--spacing-xl);
+`;
 
-    h2 {
-        font-size: 1.5rem;
-        font-weight: 600;
-        color: var(--text-primary);
-        margin-bottom: var(--spacing-xs);
-    }
+const WelcomeTitle = styled.h2`
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: var(--spacing-xs);
 
-    p {
-        color: var(--text-muted);
-        font-size: 0.95rem;
+    @media (max-width: 480px) {
+        font-size: 1.3rem;
     }
+`;
+
+const WelcomeSubtitle = styled.p`
+    color: var(--text-muted);
+    font-size: 0.95rem;
 `;
 
 const GoogleButton = styled.button`
@@ -286,47 +353,20 @@ const GoogleButton = styled.button`
     justify-content: center;
     gap: var(--spacing-md);
     padding: var(--spacing-md) var(--spacing-lg);
-    background: var(--glass-bg);
-    border: 1px solid var(--glass-border);
+    background: var(--bg-primary);
+    border: 2px solid var(--border-light);
     border-radius: var(--radius-lg);
     color: var(--text-primary);
     font-size: 1rem;
-    font-weight: 500;
+    font-weight: 600;
     cursor: pointer;
-    transition: all var(--transition-normal);
+    transition: all var(--transition-fast);
     position: relative;
-    overflow: hidden;
-
-    &::before {
-        content: '';
-        position: absolute;
-        inset: 0;
-        background: linear-gradient(
-            90deg,
-            transparent,
-            rgba(255, 255, 255, 0.1),
-            transparent
-        );
-        background-size: 200% 100%;
-        animation: ${shimmer} 3s infinite;
-        opacity: 0;
-        transition: opacity var(--transition-normal);
-    }
-
-    svg {
-        font-size: 1.5rem;
-        color: var(--accent-primary);
-    }
 
     &:hover:not(:disabled) {
-        background: var(--glass-bg-hover);
         border-color: var(--accent-primary);
         box-shadow: var(--shadow-glow);
         transform: translateY(-2px);
-
-        &::before {
-            opacity: 1;
-        }
     }
 
     &:active:not(:disabled) {
@@ -339,56 +379,125 @@ const GoogleButton = styled.button`
     }
 `;
 
-const Divider = styled.div`
+const GoogleIconWrapper = styled.div`
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-md);
+    background: var(--bg-tertiary);
     display: flex;
     align-items: center;
-    margin: var(--spacing-xl) 0;
+    justify-content: center;
 
-    &::before,
-    &::after {
-        content: '';
-        flex: 1;
-        height: 1px;
-        background: var(--glass-border);
+    svg {
+        font-size: 1.3rem;
+        color: var(--accent-primary);
+    }
+`;
+
+const ButtonText = styled.span`
+    flex: 1;
+    text-align: center;
+`;
+
+const LoadingSpinner = styled.div`
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--border-light);
+    border-top-color: var(--accent-primary);
+    border-radius: 50%;
+    animation: ${spin} 0.8s linear infinite;
+`;
+
+const SecurityNote = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-lg);
+    padding-top: var(--spacing-lg);
+    border-top: 1px solid var(--border-light);
+
+    svg {
+        font-size: 1rem;
+        color: var(--accent-success);
     }
 
     span {
-        padding: 0 var(--spacing-md);
+        font-size: 0.8rem;
         color: var(--text-muted);
-        font-size: 0.75rem;
-        text-transform: uppercase;
-        letter-spacing: 1px;
     }
 `;
 
-const Features = styled.div`
-    display: flex;
-    justify-content: space-around;
-    gap: var(--spacing-sm);
+const FeaturesGrid = styled.div`
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--spacing-md);
+
+    @media (max-width: 480px) {
+        grid-template-columns: 1fr;
+        gap: var(--spacing-sm);
+    }
 `;
 
-const Feature = styled.div`
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: var(--spacing-xs);
-    padding: var(--spacing-sm);
-    border-radius: var(--radius-md);
+const FeatureCard = styled.div`
+    background: var(--bg-primary);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+    text-align: center;
     transition: all var(--transition-fast);
 
-    span {
-        font-size: 0.75rem;
-        color: var(--text-muted);
-        text-align: center;
+    &:hover {
+        border-color: var(--accent-primary);
+        transform: translateY(-4px);
+        box-shadow: var(--shadow-lg);
     }
 
-    &:hover {
-        background: var(--glass-bg);
+    @media (max-width: 480px) {
+        padding: var(--spacing-md);
+        display: flex;
+        align-items: center;
+        text-align: left;
+        gap: var(--spacing-md);
     }
 `;
 
-const FeatureIcon = styled.span`
-    font-size: 1.5rem;
+const FeatureIconWrapper = styled.div`
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius-lg);
+    background: var(--purple-50);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto var(--spacing-md);
+
+    svg {
+        font-size: 1.5rem;
+        color: var(--accent-primary);
+    }
+
+    @media (max-width: 480px) {
+        margin: 0;
+        flex-shrink: 0;
+    }
+`;
+
+const FeatureTitle = styled.h3`
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: var(--spacing-xs);
+
+    @media (max-width: 480px) {
+        margin-bottom: 2px;
+    }
+`;
+
+const FeatureDescription = styled.p`
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    line-height: 1.4;
 `;
 
 const Footer = styled.footer`
@@ -396,8 +505,14 @@ const Footer = styled.footer`
     bottom: var(--spacing-lg);
     z-index: 1;
 
-    p {
-        color: var(--text-muted);
-        font-size: 0.85rem;
+    @media (max-width: 480px) {
+        position: relative;
+        bottom: 0;
+        margin-top: var(--spacing-xl);
     }
+`;
+
+const FooterText = styled.p`
+    color: var(--text-muted);
+    font-size: 0.85rem;
 `;

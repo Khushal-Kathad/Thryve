@@ -1,4 +1,4 @@
-import React, { useEffect, lazy, Suspense } from 'react';
+import React, { useEffect, lazy, Suspense, useState, useCallback } from 'react';
 import './App.css';
 import Header from './components/Header';
 import styled, { keyframes } from 'styled-components';
@@ -13,7 +13,7 @@ import { useNetworkStatus } from './hooks/useNetworkStatus';
 import { syncService } from './services/syncService';
 import { offlineService } from './services/offlineService';
 import { useDispatch, useSelector } from 'react-redux';
-import { setPendingCount, selectActivePanel, selectShowNewMessageModal } from './features/appSlice';
+import { setPendingCount, selectActivePanel, selectShowNewMessageModal, setActivePanel } from './features/appSlice';
 import { callService } from './services/callService';
 import { userService } from './services/userService';
 import {
@@ -26,6 +26,8 @@ import {
 } from './features/callSlice';
 import IncomingCallModal from './components/ui/IncomingCallModal';
 import NewMessageModal from './components/ui/NewMessageModal';
+import ErrorBoundary from './components/ErrorBoundary';
+import BottomNav, { NavTab } from './components/BottomNav';
 
 // Lazy load heavy components (VideoCall has ~4MB Agora SDK)
 const VideoCall = lazy(() => import('./components/VideoCall'));
@@ -45,6 +47,10 @@ const AppContent: React.FC = () => {
     const isOnline = useNetworkStatus();
     const { showToast } = useToast();
 
+    // Mobile sidebar state
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [mobileTab, setMobileTab] = useState<NavTab>('chats');
+
     // Call state selectors
     const currentCall = useSelector(selectCurrentCall);
     const incomingCall = useSelector(selectIncomingCall);
@@ -53,6 +59,30 @@ const AppContent: React.FC = () => {
     // Panel state selectors
     const activePanel = useSelector(selectActivePanel);
     const showNewMessageModal = useSelector(selectShowNewMessageModal);
+
+    // Close sidebar when switching panels on mobile
+    const handleSidebarToggle = () => {
+        setIsSidebarOpen(!isSidebarOpen);
+    };
+
+    const handleCloseSidebar = () => {
+        setIsSidebarOpen(false);
+    };
+
+    // Handle mobile bottom nav tab changes
+    const handleMobileTabChange = useCallback((tab: NavTab) => {
+        setMobileTab(tab);
+        if (tab === 'chats' || tab === 'groups') {
+            setIsSidebarOpen(true);
+            dispatch(setActivePanel('none'));
+        } else if (tab === 'calls') {
+            dispatch(setActivePanel('people'));
+            setIsSidebarOpen(false);
+        } else if (tab === 'profile') {
+            dispatch(setActivePanel('settings'));
+            setIsSidebarOpen(false);
+        }
+    }, [dispatch]);
 
     // Render the appropriate panel based on activePanel state
     const renderMainContent = () => {
@@ -100,26 +130,57 @@ const AppContent: React.FC = () => {
     useEffect(() => {
         if (!user) return;
 
-        // Save user to users collection
-        userService.saveUser({
-            uid: user.uid,
-            displayName: user.displayName,
-            email: user.email,
-            photoURL: user.photoURL,
-        });
+        let isMounted = true;
+
+        // Save user to users collection with proper error handling
+        const initializeUser = async () => {
+            try {
+                const success = await userService.saveUser({
+                    uid: user.uid,
+                    displayName: user.displayName,
+                    email: user.email,
+                    photoURL: user.photoURL,
+                });
+
+                if (isMounted && success) {
+                    console.log('User initialized successfully:', user.displayName);
+                } else if (isMounted && !success) {
+                    console.error('Failed to save user data');
+                    showToast('Failed to sync user data', 'error');
+                }
+            } catch (error) {
+                console.error('Error initializing user:', error);
+                if (isMounted) {
+                    showToast('Failed to sync user data', 'error');
+                }
+            }
+        };
+
+        initializeUser();
 
         // Set user offline when they leave
         const handleBeforeUnload = () => {
             userService.setUserOnline(user.uid, false);
         };
 
+        // Handle visibility change (tab switch, minimize)
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                userService.setUserOnline(user.uid, true);
+            }
+        };
+
         window.addEventListener('beforeunload', handleBeforeUnload);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
 
         return () => {
+            isMounted = false;
             window.removeEventListener('beforeunload', handleBeforeUnload);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
             userService.setUserOnline(user.uid, false);
+            userService.cleanup();
         };
-    }, [user]);
+    }, [user, showToast]);
 
     // Listen for incoming calls when user is authenticated
     useEffect(() => {
@@ -187,20 +248,36 @@ const AppContent: React.FC = () => {
                 <Login />
             ) : (
                 <>
-                    <Header />
+                    <Header
+                        onMenuClick={handleSidebarToggle}
+                        isSidebarOpen={isSidebarOpen}
+                    />
                     <AppBody>
-                        <Sidebar />
-                        {renderMainContent()}
+                        <Sidebar
+                            isOpen={isSidebarOpen}
+                            onClose={handleCloseSidebar}
+                        />
+                        <MainContent>
+                            {renderMainContent()}
+                        </MainContent>
                     </AppBody>
 
                     {/* New Message Modal */}
                     <NewMessageModal isOpen={showNewMessageModal} />
 
-                    {/* Video/Audio Call UI - Lazy loaded */}
+                    {/* Video/Audio Call UI - Lazy loaded with Error Boundary */}
                     {isInCall && user && (
-                        <Suspense fallback={<CallLoader>Connecting call...</CallLoader>}>
-                            <VideoCall userId={user.uid} />
-                        </Suspense>
+                        <ErrorBoundary
+                            fallback={<CallLoader>Call error - please retry</CallLoader>}
+                            onError={(error) => {
+                                console.error('Video call error:', error);
+                                showToast('Call failed - please try again', 'error');
+                            }}
+                        >
+                            <Suspense fallback={<CallLoader>Connecting call...</CallLoader>}>
+                                <VideoCall userId={user.uid} />
+                            </Suspense>
+                        </ErrorBoundary>
                     )}
 
                     {/* Incoming Call Modal */}
@@ -211,6 +288,12 @@ const AppContent: React.FC = () => {
                             onReject={handleRejectCall}
                         />
                     )}
+
+                    {/* Mobile Bottom Navigation */}
+                    <BottomNav
+                        activeTab={mobileTab}
+                        onTabChange={handleMobileTabChange}
+                    />
                 </>
             )}
         </AppContainer>
@@ -260,12 +343,52 @@ const float = keyframes`
 // Styled Components
 const AppContainer = styled.div`
     min-height: 100vh;
-    background: var(--gradient-primary);
+    min-height: 100dvh;
+    min-height: -webkit-fill-available;
+    background: var(--bg-primary);
+    display: flex;
+    flex-direction: column;
+    /* GPU acceleration */
+    transform: translateZ(0);
 `;
 
 const AppBody = styled.div`
     display: flex;
+    flex: 1;
     height: 100vh;
+    height: 100dvh;
+    height: -webkit-fill-available;
+    overflow: hidden;
+    position: relative;
+`;
+
+const MainContent = styled.main`
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    height: calc(100vh - var(--header-height));
+    height: calc(100dvh - var(--header-height));
+    margin-top: var(--header-height);
+    background: var(--bg-secondary);
+    overflow: hidden;
+    /* GPU acceleration for smoother rendering */
+    transform: translateZ(0);
+    will-change: transform;
+
+    @media (max-width: 768px) {
+        width: 100%;
+        /* Account for bottom nav height with safe area */
+        height: calc(100dvh - var(--header-height) - var(--bottom-nav-height, 70px));
+        height: calc(100vh - var(--header-height) - var(--bottom-nav-height, 70px));
+        padding-bottom: env(safe-area-inset-bottom, 0);
+        /* Smooth scrolling for mobile */
+        -webkit-overflow-scrolling: touch;
+    }
+
+    @media (max-width: 768px) and (orientation: landscape) {
+        height: calc(100dvh - var(--header-height) - var(--bottom-nav-height, 56px));
+    }
 `;
 
 const LoadingScreen = styled.div`
