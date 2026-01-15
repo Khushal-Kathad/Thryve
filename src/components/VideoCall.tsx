@@ -162,6 +162,8 @@ const VideoCall = ({ userId }: VideoCallProps) => {
                 }
             } catch (error) {
                 console.error('Error initializing call:', error);
+                // Reset initialization flag on error to allow retry
+                initializationRef.current = false;
                 if (isMounted) {
                     setIsConnecting(false);
                     handleEndCall();
