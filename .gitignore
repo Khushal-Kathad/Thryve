@@ -35,3 +35,4 @@ secrets.md
 # Temp files
 tmpclaude-*
 *.timestamp-*
+agora-worker/node_modules/

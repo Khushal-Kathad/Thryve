@@ -1,0 +1,46 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users collection - anyone authenticated can read all users
+    // Users can only write to their own document
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow update: if request.auth != null && request.auth.uid == userId;
+      allow delete: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Rooms collection - authenticated users can read/write
+    match /rooms/{roomId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null;
+      allow delete: if request.auth != null &&
+        resource.data.createdBy == request.auth.uid;
+
+      // Messages subcollection
+      match /messages/{messageId} {
+        allow read: if request.auth != null;
+        allow create: if request.auth != null;
+        allow update: if request.auth != null &&
+          resource.data.userId == request.auth.uid;
+        allow delete: if request.auth != null &&
+          resource.data.userId == request.auth.uid;
+      }
+
+      // Typing subcollection for real-time typing indicators
+      match /typing/{odUserId} {
+        allow read: if request.auth != null;
+        allow write: if request.auth != null && request.auth.uid == odUserId;
+      }
+    }
+
+    // Calls collection
+    match /calls/{callId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null;
+      allow delete: if request.auth != null;
+    }
+  }
+}

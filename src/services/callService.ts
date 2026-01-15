@@ -15,6 +15,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import type { Call, CallParticipant } from '../types';
+import debug from '../utils/debug';
 
 class CallService {
     private incomingCallUnsubscribe: Unsubscribe | null = null;
@@ -54,17 +55,21 @@ class CallService {
             callType,
             isGroupCall,
             status: isGroupCall ? 'active' : 'ringing', // Group calls start as active
-            participants: isGroupCall ? [{
+            createdAt: Date.now(),
+        };
+
+        // Only add participants field for group calls (Firestore rejects undefined values)
+        if (isGroupCall) {
+            call.participants = [{
                 odUserId: callerId,
                 odUserName: callerName,
                 photo: callerPhoto,
                 joinedAt: Date.now(),
-            }] : undefined,
-            createdAt: Date.now(),
-        };
+            }];
+        }
 
         await setDoc(callRef, call);
-        console.log('Call created:', call.id, isGroupCall ? '(group)' : '(1-to-1)');
+        debug.log('Call created:', call.id, isGroupCall ? '(group)' : '(1-to-1)');
 
         return call;
     }
@@ -76,7 +81,7 @@ class CallService {
             status: 'active',
             answeredAt: Date.now(),
         });
-        console.log('Call accepted:', callId);
+        debug.log('Call accepted:', callId);
     }
 
     // Reject a call
@@ -86,7 +91,7 @@ class CallService {
             status: 'rejected',
             endedAt: Date.now(),
         });
-        console.log('Call rejected:', callId);
+        debug.log('Call rejected:', callId);
     }
 
     // End a call
@@ -96,7 +101,7 @@ class CallService {
             status: 'ended',
             endedAt: Date.now(),
         });
-        console.log('Call ended:', callId);
+        debug.log('Call ended:', callId);
     }
 
     // Mark call as missed
@@ -106,7 +111,7 @@ class CallService {
             status: 'missed',
             endedAt: Date.now(),
         });
-        console.log('Call missed:', callId);
+        debug.log('Call missed:', callId);
     }
 
     // Join a group call
@@ -126,7 +131,7 @@ class CallService {
                 (p) => p.odUserId === odUserId
             );
             if (isAlreadyParticipant) {
-                console.log('User already in call:', odUserId);
+                debug.log('User already in call:', odUserId);
                 return;
             }
         }
@@ -140,34 +145,38 @@ class CallService {
         await updateDoc(callRef, {
             participants: arrayUnion(participant),
         });
-        console.log('User joined group call:', odUserId);
+        debug.log('User joined group call:', odUserId);
     }
 
     // Leave a group call
     async leaveGroupCall(
         callId: string,
-        odUserId: string,
-        odUserName: string,
-        photo: string,
-        joinedAt: number
+        odUserId: string
     ): Promise<void> {
         const callRef = doc(db, 'calls', callId);
-        const participant: CallParticipant = {
-            odUserId,
-            odUserName,
-            photo,
-            joinedAt,
-        };
-        await updateDoc(callRef, {
-            participants: arrayRemove(participant),
-        });
-        console.log('User left group call:', odUserId);
+
+        // Get the call to find the participant's exact data
+        const callDoc = await getDoc(callRef);
+        if (!callDoc.exists()) {
+            debug.log('Call not found:', callId);
+            return;
+        }
+
+        const call = callDoc.data() as Call;
+        const participant = call.participants?.find(p => p.odUserId === odUserId);
+
+        if (participant) {
+            await updateDoc(callRef, {
+                participants: arrayRemove(participant),
+            });
+            debug.log('User left group call:', odUserId);
+        }
 
         // Check if call should end (no participants left)
-        const callDoc = await getDoc(callRef);
-        if (callDoc.exists()) {
-            const call = callDoc.data() as Call;
-            if (!call.participants || call.participants.length === 0) {
+        const updatedCallDoc = await getDoc(callRef);
+        if (updatedCallDoc.exists()) {
+            const updatedCall = updatedCallDoc.data() as Call;
+            if (!updatedCall.participants || updatedCall.participants.length === 0) {
                 await this.endCall(callId);
             }
         }
