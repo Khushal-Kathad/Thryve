@@ -12,6 +12,7 @@ import {
 import TagIcon from '@mui/icons-material/Tag';
 import LockIcon from '@mui/icons-material/Lock';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
+import GroupsIcon from '@mui/icons-material/Groups';
 import { SvgIconComponent } from '@mui/icons-material';
 import { db } from '../firebase';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -119,18 +120,31 @@ const SidebarOption: React.FC<SidebarOptionProps> = ({
         }
     };
 
+    // Get initials from group name
+    const getInitials = (name: string) => {
+        return name
+            .split(' ')
+            .map(word => word[0])
+            .join('')
+            .toUpperCase()
+            .slice(0, 2) || '#';
+    };
+
     return (
         <OptionContainer
             onClick={handleClick}
             $isActive={!!isActive}
             $isAddChannel={!!addChannelOption}
         >
-            {Icon ? (
-                <Icon />
-            ) : (
-                <TagIcon />
-            )}
-            <OptionTitle>{title}</OptionTitle>
+            <GroupAvatar $isActive={!!isActive}>
+                {getInitials(title)}
+            </GroupAvatar>
+            <OptionInfo>
+                <OptionTitle>{title}</OptionTitle>
+                <OptionSubtitle>
+                    {hasPassword ? 'Private group' : 'Public group'}
+                </OptionSubtitle>
+            </OptionInfo>
             {!Icon && !addChannelOption && (
                 <>
                     {isCreator ? (
@@ -151,7 +165,6 @@ const SidebarOption: React.FC<SidebarOptionProps> = ({
                     )}
                 </>
             )}
-            {isActive && <ActiveIndicator />}
         </OptionContainer>
     );
 };
@@ -162,69 +175,92 @@ export default SidebarOption;
 const OptionContainer = styled.div<{ $isActive?: boolean; $isAddChannel?: boolean }>`
     display: flex;
     align-items: center;
-    gap: var(--spacing-sm);
-    padding: var(--spacing-sm) var(--spacing-md);
-    margin: 2px var(--spacing-sm);
-    border-radius: var(--radius-md);
-    color: ${props => props.$isActive ? 'var(--text-primary)' : 'var(--text-secondary)'};
-    font-size: 0.9rem;
+    gap: 10px;
+    padding: 8px 10px;
+    margin: 2px 0;
+    border-radius: 10px;
     cursor: pointer;
-    position: relative;
-    transition: all var(--transition-fast);
-    background: ${props => props.$isActive ? 'var(--glass-bg-hover)' : 'transparent'};
-
-    svg {
-        font-size: 1.1rem;
-        color: ${props => props.$isAddChannel
-            ? 'var(--accent-primary)'
-            : props.$isActive
-                ? 'var(--accent-primary)'
-                : 'var(--text-muted)'};
-        transition: color var(--transition-fast);
-    }
+    transition: all 0.2s ease;
+    background: ${props => props.$isActive
+        ? 'linear-gradient(135deg, #F0EBFF 0%, #E8E0FF 100%)'
+        : 'white'};
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    border: 1px solid ${props => props.$isActive ? '#6338F6' : 'transparent'};
 
     &:hover {
-        background: var(--glass-bg-hover);
-        color: var(--text-primary);
+        background: linear-gradient(135deg, #FAFBFC 0%, #F0EBFF 100%);
+        transform: translateX(4px);
+        border-color: #6338F6;
+    }
 
-        svg {
-            color: ${props => props.$isAddChannel
-                ? 'var(--accent-primary)'
-                : 'var(--text-primary)'};
-        }
+    &:active {
+        transform: scale(0.98);
     }
 
     ${props => props.$isAddChannel && `
-        color: var(--accent-primary);
-        font-weight: 500;
+        background: linear-gradient(135deg, var(--purple-50) 0%, rgba(124, 58, 237, 0.1) 100%);
+        border: 1px dashed var(--purple-200);
 
         &:hover {
-            color: var(--accent-primary);
+            background: var(--purple-100);
+            border-style: solid;
         }
     `}
 `;
 
-const OptionTitle = styled.span`
+const GroupAvatar = styled.div<{ $isActive?: boolean }>`
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-full);
+    background: ${props => props.$isActive
+        ? 'linear-gradient(135deg, #6338F6 0%, #855CFF 100%)'
+        : 'linear-gradient(135deg, #60CBFF 0%, #6338F6 100%)'};
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: white;
+    text-transform: uppercase;
+`;
+
+const OptionInfo = styled.div`
     flex: 1;
-    white-space: nowrap;
+    min-width: 0;
+`;
+
+const OptionTitle = styled.div`
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #6338F6;
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
+    line-height: 1.2;
+`;
+
+const OptionSubtitle = styled.div`
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    line-height: 1.2;
 `;
 
 const LockIndicator = styled.span`
     display: flex;
     align-items: center;
     justify-content: center;
-    opacity: 0.5;
-    transition: opacity var(--transition-fast);
+    width: 24px;
+    height: 24px;
+    border-radius: var(--radius-full);
+    background: rgba(255, 193, 7, 0.1);
 
     svg {
-        font-size: 0.9rem !important;
-        color: var(--text-muted) !important;
-    }
-
-    ${OptionContainer}:hover & {
-        opacity: 0.8;
+        font-size: 0.8rem !important;
+        color: #FFC107 !important;
     }
 `;
 
@@ -232,25 +268,24 @@ const LockToggleButton = styled.button<{ $isLocked: boolean }>`
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 4px;
+    width: 24px;
+    height: 24px;
     border: none;
-    background: transparent;
-    border-radius: var(--radius-sm);
+    background: ${({ $isLocked }) => $isLocked ? 'rgba(255, 193, 7, 0.1)' : 'rgba(0, 0, 0, 0.05)'};
+    border-radius: var(--radius-full);
     cursor: pointer;
-    opacity: 0.6;
-    transition: all var(--transition-fast);
+    transition: all 0.2s ease;
 
     svg {
-        font-size: 0.9rem !important;
-        color: ${({ $isLocked }) => $isLocked ? 'var(--accent-warning)' : 'var(--text-muted)'} !important;
+        font-size: 0.8rem !important;
+        color: ${({ $isLocked }) => $isLocked ? '#FFC107' : 'var(--text-muted)'} !important;
     }
 
     &:hover {
-        opacity: 1;
-        background: var(--glass-bg);
+        background: ${({ $isLocked }) => $isLocked ? 'rgba(12, 198, 140, 0.1)' : 'rgba(255, 193, 7, 0.1)'};
 
         svg {
-            color: ${({ $isLocked }) => $isLocked ? 'var(--accent-success)' : 'var(--accent-warning)'} !important;
+            color: ${({ $isLocked }) => $isLocked ? '#0CC68C' : '#FFC107'} !important;
         }
     }
 
@@ -258,19 +293,4 @@ const LockToggleButton = styled.button<{ $isLocked: boolean }>`
         opacity: 0.3;
         cursor: not-allowed;
     }
-
-    ${OptionContainer}:hover & {
-        opacity: 0.8;
-    }
-`;
-
-const ActiveIndicator = styled.span`
-    position: absolute;
-    left: 0;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 3px;
-    height: 60%;
-    background: var(--accent-primary);
-    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 `;

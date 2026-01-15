@@ -188,10 +188,10 @@ const slideUp = keyframes`
 
 const pulse = keyframes`
     0%, 100% {
-        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
+        box-shadow: 0 0 0 0 rgba(12, 198, 140, 0.4);
     }
     50% {
-        box-shadow: 0 0 0 4px rgba(16, 185, 129, 0);
+        box-shadow: 0 0 0 4px rgba(12, 198, 140, 0);
     }
 `;
 
@@ -211,7 +211,7 @@ const OfflineBanner = styled.div`
     left: 0;
     right: 0;
     height: 44px;
-    background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%);
+    background: linear-gradient(135deg, var(--accent-danger) 0%, #DC2020 100%);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -268,25 +268,23 @@ const HeaderContainer = styled.header<{ $hasOfflineBanner?: boolean }>`
     align-items: center;
     justify-content: space-between;
     height: var(--header-height);
-    padding: 0 var(--spacing-4);
-    padding-left: max(var(--spacing-4), env(safe-area-inset-left, 0));
-    padding-right: max(var(--spacing-4), env(safe-area-inset-right, 0));
-    background: var(--glass-bg-strong);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border-bottom: 1px solid var(--border-light);
+    padding: 0 20px;
+    padding-left: max(20px, env(safe-area-inset-left, 0));
+    padding-right: max(20px, env(safe-area-inset-right, 0));
+    background: linear-gradient(135deg, #6338F6 0%, #855CFF 100%);
+    border-bottom: none;
     position: fixed;
     top: ${(props) => (props.$hasOfflineBanner ? '44px' : '0')};
     left: 0;
     right: 0;
     z-index: 1000;
-    transition: top var(--transition-normal), background var(--transition-normal);
-    /* GPU acceleration */
+    transition: top 0.25s ease, background 0.25s ease;
     transform: translateZ(0);
     will-change: transform;
+    box-shadow: 0 4px 20px rgba(99, 56, 246, 0.25);
 
     @media (min-width: 768px) {
-        padding: 0 var(--spacing-6);
+        padding: 0 24px;
     }
 
     @media (max-width: 768px) and (orientation: landscape) {
@@ -307,10 +305,10 @@ const MobileMenuButton = styled.button`
     justify-content: center;
     width: 44px;
     height: 44px;
-    border-radius: var(--radius-lg);
-    color: var(--text-secondary);
-    transition: all var(--transition-fast);
-    /* Touch optimization */
+    border-radius: 12px;
+    color: white;
+    background: rgba(255, 255, 255, 0.15);
+    transition: all 0.2s ease;
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
     user-select: none;
@@ -321,8 +319,7 @@ const MobileMenuButton = styled.button`
     }
 
     &:hover {
-        background: var(--surface-hover);
-        color: var(--accent-primary);
+        background: rgba(255, 255, 255, 0.25);
     }
 
     &:active {
@@ -345,26 +342,25 @@ const Logo = styled.div`
 `;
 
 const LogoIcon = styled.div`
-    width: 36px;
-    height: 36px;
-    border-radius: var(--radius-lg);
-    background: var(--gradient-primary);
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: var(--text-lg);
-    font-weight: 700;
+    font-size: 1.2rem;
+    font-weight: 800;
     color: white;
-    box-shadow: var(--shadow-purple);
+    border: 1px solid rgba(255, 255, 255, 0.3);
 `;
 
 const LogoText = styled.span`
-    font-size: var(--text-xl);
-    font-weight: 700;
-    background: var(--gradient-primary);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: white;
+    letter-spacing: -0.5px;
 
     @media (max-width: 640px) {
         display: none;
@@ -396,26 +392,27 @@ const HeaderCenter = styled.div<{ $isSearchFocused?: boolean }>`
 const SearchContainer = styled.div<{ $isFocused?: boolean }>`
     display: flex;
     align-items: center;
-    gap: var(--spacing-2);
+    gap: 10px;
     width: 100%;
-    padding: var(--spacing-2) var(--spacing-4);
-    background: var(--surface-secondary);
-    border: 2px solid transparent;
-    border-radius: var(--radius-full);
-    transition: all var(--transition-normal);
+    padding: 10px 18px;
+    background: rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 50px;
+    transition: all 0.25s ease;
+    backdrop-filter: blur(10px);
 
     ${props => props.$isFocused && css`
-        background: var(--bg-primary);
-        border-color: var(--accent-primary);
-        box-shadow: var(--shadow-glow);
+        background: rgba(255, 255, 255, 0.25);
+        border-color: rgba(255, 255, 255, 0.4);
+        box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
     `}
 
     &:hover:not(:focus-within) {
-        background: var(--surface-hover);
+        background: rgba(255, 255, 255, 0.2);
     }
 
     @media (max-width: 768px) {
-        padding: var(--spacing-3) var(--spacing-4);
+        padding: 12px 18px;
     }
 `;
 
@@ -423,41 +420,43 @@ const SearchIconWrapper = styled.div`
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--text-muted);
-    transition: color var(--transition-fast);
+    color: rgba(255, 255, 255, 0.7);
+    transition: color 0.2s ease;
 
     svg {
         font-size: 1.25rem;
     }
 
     ${SearchContainer}:focus-within & {
-        color: var(--accent-primary);
+        color: white;
     }
 `;
 
 const SearchInput = styled.input`
     flex: 1;
-    font-size: var(--text-sm);
+    font-size: 0.9rem;
     font-weight: 400;
     min-width: 0;
+    color: white;
+    background: transparent;
 
     &::placeholder {
-        color: var(--text-muted);
+        color: rgba(255, 255, 255, 0.6);
     }
 
     @media (max-width: 768px) {
-        font-size: var(--text-base);
+        font-size: 1rem;
     }
 `;
 
 const SearchShortcut = styled.span`
-    padding: 4px 8px;
-    background: var(--surface-hover);
-    border-radius: var(--radius-sm);
-    font-size: var(--text-xs);
-    color: var(--text-muted);
+    padding: 4px 10px;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 6px;
+    font-size: 0.7rem;
+    color: rgba(255, 255, 255, 0.8);
     font-family: var(--font-mono);
-    font-weight: 500;
+    font-weight: 600;
 
     @media (max-width: 768px) {
         display: none;
@@ -485,57 +484,59 @@ const IconButton = styled.button<{ $hasNotification?: boolean }>`
     justify-content: center;
     width: 40px;
     height: 40px;
-    border-radius: var(--radius-lg);
-    color: var(--text-secondary);
-    transition: all var(--transition-fast);
+    border-radius: 12px;
+    color: white;
+    background: rgba(255, 255, 255, 0.1);
+    transition: all 0.2s ease;
 
     svg {
-        font-size: 1.4rem;
+        font-size: 1.3rem;
     }
 
     &:hover {
-        background: var(--surface-hover);
-        color: var(--accent-primary);
+        background: rgba(255, 255, 255, 0.2);
     }
 `;
 
 const NotificationBadge = styled.span`
     position: absolute;
-    top: 6px;
-    right: 6px;
+    top: 4px;
+    right: 4px;
     min-width: 18px;
     height: 18px;
     padding: 0 5px;
-    background: var(--accent-danger);
-    border-radius: var(--radius-full);
+    background: #FD3A55;
+    border-radius: 50px;
     font-size: 0.65rem;
     font-weight: 700;
     color: white;
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 2px solid var(--bg-primary);
+    border: 2px solid #6338F6;
+    box-shadow: 0 2px 8px rgba(253, 58, 85, 0.4);
 `;
 
 const UserSection = styled.button`
     display: flex;
     align-items: center;
-    gap: var(--spacing-3);
-    padding: var(--spacing-2);
-    border-radius: var(--radius-xl);
+    gap: 12px;
+    padding: 6px 12px 6px 6px;
+    border-radius: 50px;
     cursor: pointer;
-    transition: all var(--transition-fast);
+    transition: all 0.2s ease;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
 
     &:hover {
-        background: var(--surface-hover);
+        background: rgba(255, 255, 255, 0.2);
     }
 `;
 
 const StyledAvatar = styled(Avatar)`
-    width: 38px !important;
-    height: 38px !important;
-    border: 2px solid var(--accent-primary);
-    box-shadow: var(--shadow-purple);
+    width: 36px !important;
+    height: 36px !important;
+    border: 2px solid rgba(255, 255, 255, 0.5);
 `;
 
 const UserInfo = styled.div`
@@ -550,17 +551,17 @@ const UserInfo = styled.div`
 `;
 
 const UserName = styled.span`
-    font-size: var(--text-sm);
+    font-size: 0.9rem;
     font-weight: 600;
-    color: var(--text-primary);
+    color: white;
 `;
 
 const UserStatus = styled.span`
     display: flex;
     align-items: center;
     gap: 6px;
-    font-size: var(--text-xs);
-    color: var(--text-muted);
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.75);
 `;
 
 const StatusDot = styled.span<{ $isOnline?: boolean }>`

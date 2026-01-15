@@ -1,18 +1,16 @@
-import React, { useState, useEffect, useMemo, useCallback, memo } from 'react';
-import styled, { keyframes, css } from 'styled-components';
+import React, { useState, useMemo, useCallback, memo } from 'react';
+import styled, { keyframes } from 'styled-components';
 import AddIcon from '@mui/icons-material/Add';
-import TagIcon from '@mui/icons-material/Tag';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
-import AlternateEmailIcon from '@mui/icons-material/AlternateEmail';
 import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
 import PeopleOutlineIcon from '@mui/icons-material/PeopleOutline';
 import SettingsIcon from '@mui/icons-material/Settings';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import PersonIcon from '@mui/icons-material/Person';
 import CloseIcon from '@mui/icons-material/Close';
 import GroupsIcon from '@mui/icons-material/Groups';
-import MessageIcon from '@mui/icons-material/Message';
+import ChatIcon from '@mui/icons-material/Chat';
 import SearchIcon from '@mui/icons-material/Search';
+import PersonIcon from '@mui/icons-material/Person';
 import SidebarOption from './SidebarOption';
 import CreateChannelModal from './ui/CreateChannelModal';
 import ChannelPasswordModal from './ui/ChannelPasswordModal';
@@ -36,7 +34,6 @@ import {
 import type { SidebarPanel } from '../types';
 import { hashPassword, verifyPassword } from '../utils/passwordUtils';
 import { useToast } from '../context/ToastContext';
-import { userService, AppUser } from '../services/userService';
 import { useDebounce } from '../hooks/useDebounce';
 
 interface SidebarProps {
@@ -44,48 +41,8 @@ interface SidebarProps {
     onClose?: () => void;
 }
 
-// Memoized User Item Component for performance
-const UserItem = memo<{
-    user: AppUser;
-    isCurrentUser?: boolean;
-    onClick?: () => void;
-}>(({ user, isCurrentUser, onClick }) => (
-    <UserItemContainer
-        onClick={onClick}
-        $clickable={!isCurrentUser}
-        $offline={!user.isOnline && !isCurrentUser}
-    >
-        <UserAvatarWrapper>
-            {user.photoURL ? (
-                <UserAvatar src={user.photoURL} alt={user.displayName} loading="lazy" />
-            ) : (
-                <UserAvatarPlaceholder $online={user.isOnline}>
-                    <PersonIcon />
-                </UserAvatarPlaceholder>
-            )}
-            <OnlineIndicator $isOnline={user.isOnline} />
-        </UserAvatarWrapper>
-        <UserInfo>
-            <UserName>
-                {user.displayName}
-                {isCurrentUser && <YouBadge>you</YouBadge>}
-            </UserName>
-            <UserStatus $online={user.isOnline}>
-                {user.isOnline ? 'Active now' : 'Offline'}
-            </UserStatus>
-        </UserInfo>
-        {!isCurrentUser && user.isOnline && (
-            <MessageBadge>
-                <MessageIcon />
-            </MessageBadge>
-        )}
-    </UserItemContainer>
-));
-
-UserItem.displayName = 'UserItem';
-
 // Skeleton Loading Component
-const UserSkeleton = memo(() => (
+const ChannelSkeleton = memo(() => (
     <SkeletonContainer>
         <SkeletonAvatar />
         <SkeletonContent>
@@ -95,7 +52,7 @@ const UserSkeleton = memo(() => (
     </SkeletonContainer>
 ));
 
-UserSkeleton.displayName = 'UserSkeleton';
+ChannelSkeleton.displayName = 'ChannelSkeleton';
 
 const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => {
     const auth = getAuth();
@@ -104,9 +61,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => {
     const { showToast } = useToast();
 
     // State
-    const [allUsers, setAllUsers] = useState<AppUser[]>([]);
-    const [isLoadingUsers, setIsLoadingUsers] = useState(true);
-    const [showDMs, setShowDMs] = useState(true);
+    const [showChats, setShowChats] = useState(true);
     const [showGroups, setShowGroups] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [isCreating, setIsCreating] = useState(false);
@@ -125,59 +80,40 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => {
     );
     const [channels, channelsLoading] = useCollection(channelsQuery);
 
-    // Listen for all users with cleanup and error handling
-    useEffect(() => {
-        setIsLoadingUsers(true);
-
-        // Set a timeout to stop loading after 10 seconds even if no data
-        const loadingTimeout = setTimeout(() => {
-            setIsLoadingUsers(false);
-            console.warn('User loading timed out');
-        }, 10000);
-
-        const unsubscribe = userService.listenForUsers((users) => {
-            clearTimeout(loadingTimeout);
-            setAllUsers(users);
-            setIsLoadingUsers(false);
-            console.log('Users loaded:', users.length);
-        });
-
-        return () => {
-            clearTimeout(loadingTimeout);
-            unsubscribe();
-            userService.stopListening();
-        };
-    }, []);
-
     // Debounce search query for better performance
     const debouncedSearchQuery = useDebounce(searchQuery, 200);
 
-    // Memoized user lists - prevents recalculation on every render
-    const { currentUserData, onlineUsers, offlineUsers, filteredOnlineUsers, filteredOfflineUsers } = useMemo(() => {
-        const currentUserData = allUsers.find(u => u.uid === user?.uid) || null;
-        const otherUsers = allUsers.filter(u => u.uid !== user?.uid);
-        const online = otherUsers.filter(u => u.isOnline);
-        const offline = otherUsers.filter(u => !u.isOnline);
-
-        // Apply search filter with debounced query
+    // Memoized channel lists - separate DMs and Groups
+    // IMPORTANT: Only show DMs where current user is a member (privacy fix)
+    const { dmChannels, groupChannels, filteredDMs, filteredGroups } = useMemo(() => {
+        const allDMs = channels?.docs.filter(doc => {
+            const data = doc.data();
+            // Only show DMs where current user is a member
+            return data.isDM === true && data.members?.includes(user?.uid);
+        }) || [];
+        const allGroups = channels?.docs.filter(doc => !doc.data().isDM) || [];
         const searchLower = debouncedSearchQuery.toLowerCase().trim();
-        const filterFn = (u: AppUser) =>
-            !searchLower || u.displayName.toLowerCase().includes(searchLower);
+
+        const filteredDMsList = searchLower
+            ? allDMs.filter(doc => {
+                const data = doc.data();
+                const name = data.name || '';
+                const memberNames = data.memberNames ? Object.values(data.memberNames).join(' ') : '';
+                return name.toLowerCase().includes(searchLower) || memberNames.toLowerCase().includes(searchLower);
+            })
+            : allDMs;
+
+        const filteredGroupsList = searchLower
+            ? allGroups.filter(doc => doc.data().name.toLowerCase().includes(searchLower))
+            : allGroups;
 
         return {
-            currentUserData,
-            onlineUsers: online,
-            offlineUsers: offline,
-            filteredOnlineUsers: online.filter(filterFn),
-            filteredOfflineUsers: offline.filter(filterFn),
+            dmChannels: allDMs,
+            groupChannels: allGroups,
+            filteredDMs: filteredDMsList,
+            filteredGroups: filteredGroupsList,
         };
-    }, [allUsers, user?.uid, debouncedSearchQuery]);
-
-    // Memoized channel lists
-    const { dmRooms, publicChannels } = useMemo(() => ({
-        dmRooms: channels?.docs.filter(doc => doc.data().isDM) || [],
-        publicChannels: channels?.docs.filter(doc => !doc.data().isDM) || [],
-    }), [channels]);
+    }, [channels, debouncedSearchQuery, user?.uid]);
 
     // Memoized handlers
     const handleMenuClick = useCallback((panel: SidebarPanel) => {
@@ -189,28 +125,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => {
         dispatch(setShowNewMessageModal(true));
         onClose?.();
     }, [dispatch, onClose]);
-
-    const handleStartDM = useCallback(async (otherUser: AppUser) => {
-        if (!user) return;
-
-        try {
-            const dmRoomId = await userService.getOrCreateDMRoom(
-                user.uid,
-                otherUser.uid,
-                user.displayName || 'You',
-                otherUser.displayName,
-                user.photoURL || '',
-                otherUser.photoURL || ''
-            );
-
-            dispatch(addVerifiedRoom({ roomId: dmRoomId }));
-            dispatch(enterRoom({ roomId: dmRoomId }));
-            onClose?.();
-        } catch (error) {
-            console.error('Error creating DM:', error);
-            showToast('Failed to start conversation', 'error');
-        }
-    }, [user, dispatch, onClose, showToast]);
 
     const handleCreateChannel = useCallback(async (name: string, password: string | null) => {
         if (!user) return;
@@ -280,8 +194,36 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => {
         setPasswordError('');
     }, [dispatch]);
 
-    const toggleDMs = useCallback(() => setShowDMs(prev => !prev), []);
+    const toggleChats = useCallback(() => setShowChats(prev => !prev), []);
     const toggleGroups = useCallback(() => setShowGroups(prev => !prev), []);
+
+    // Get display info for DM (show the other person's name and photo)
+    const getDMUserInfo = useCallback((roomData: any) => {
+        if (!user) return { name: roomData.name || 'Chat', photo: null, odUserId: null };
+        const memberNames = roomData.memberNames || {};
+        const memberPhotos = roomData.memberPhotos || {};
+        const members = roomData.members || [];
+
+        const otherUserId = members.find((id: string) => id !== user.uid);
+        const otherMemberName = otherUserId ? memberNames[otherUserId] : null;
+        const otherMemberPhoto = otherUserId ? memberPhotos[otherUserId] : null;
+
+        return {
+            name: otherMemberName || roomData.name || 'Chat',
+            photo: otherMemberPhoto || null,
+            odUserId: otherUserId || null
+        };
+    }, [user]);
+
+    // Get initials from name
+    const getInitials = (name: string) => {
+        return name
+            .split(' ')
+            .map(word => word[0])
+            .join('')
+            .toUpperCase()
+            .slice(0, 2);
+    };
 
     return (
         <>
@@ -312,38 +254,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => {
                 </SidebarHeader>
 
                 <SidebarContent>
-                    {/* Quick Menu */}
-                    <MenuSection>
-                        <MenuItem onClick={() => handleMenuClick('threads')}>
-                            <MenuIcon><ChatBubbleOutlineIcon /></MenuIcon>
-                            <span>Threads</span>
-                        </MenuItem>
-                        <MenuItem onClick={() => handleMenuClick('mentions')}>
-                            <MenuIcon><AlternateEmailIcon /></MenuIcon>
-                            <span>Mentions</span>
-                        </MenuItem>
-                        <MenuItem onClick={() => handleMenuClick('saved')}>
-                            <MenuIcon><BookmarkBorderIcon /></MenuIcon>
-                            <span>Saved</span>
-                        </MenuItem>
-                        <MenuItem onClick={() => handleMenuClick('people')}>
-                            <MenuIcon><PeopleOutlineIcon /></MenuIcon>
-                            <span>People</span>
-                        </MenuItem>
-                        <MenuItem onClick={() => handleMenuClick('settings')}>
-                            <MenuIcon><SettingsIcon /></MenuIcon>
-                            <span>Settings</span>
-                        </MenuItem>
-                    </MenuSection>
-
-                    <Divider />
-
-                    {/* Search Users */}
+                    {/* Search */}
                     <SearchContainer>
                         <SearchIcon />
                         <SearchInput
                             type="text"
-                            placeholder="Search people..."
+                            placeholder="Search chats & groups..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                         />
@@ -354,94 +270,62 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => {
                         )}
                     </SearchContainer>
 
-                    {/* Direct Messages Section */}
+                    {/* Chats Section */}
                     <Section>
-                        <SectionHeader onClick={toggleDMs}>
+                        <SectionHeader onClick={toggleChats}>
                             <SectionHeaderLeft>
-                                <ExpandIcon $isExpanded={showDMs}>
+                                <ExpandIcon $isExpanded={showChats}>
                                     <ExpandMoreIcon />
                                 </ExpandIcon>
                                 <SectionIcon>
-                                    <MessageIcon />
+                                    <ChatIcon />
                                 </SectionIcon>
-                                <span>Direct Messages</span>
+                                <span>Chats</span>
                             </SectionHeaderLeft>
-                            <BadgeGroup>
-                                {onlineUsers.length > 0 && (
-                                    <OnlineBadge>
-                                        <span className="dot" />
-                                        {onlineUsers.length} online
-                                    </OnlineBadge>
-                                )}
-                            </BadgeGroup>
+                            <SectionBadge>{dmChannels.length}</SectionBadge>
                         </SectionHeader>
 
-                        <SectionContent $isExpanded={showDMs}>
-                            {isLoadingUsers ? (
+                        <SectionContent $isExpanded={showChats}>
+                            <AddButton onClick={handleNewMessage}>
+                                <AddIcon />
+                                <span>New Chat</span>
+                            </AddButton>
+
+                            {channelsLoading ? (
                                 <>
-                                    <UserSkeleton />
-                                    <UserSkeleton />
-                                    <UserSkeleton />
+                                    <ChannelSkeleton />
+                                    <ChannelSkeleton />
                                 </>
-                            ) : (
-                                <>
-                                    {/* Current User */}
-                                    {currentUserData && (
-                                        <UserItem
-                                            user={{
-                                                ...currentUserData,
-                                                displayName: user?.displayName?.split(' ')[0] || 'You',
-                                                isOnline: true,
+                            ) : filteredDMs.length > 0 ? (
+                                filteredDMs.map((docItem) => {
+                                    const userInfo = getDMUserInfo(docItem.data());
+                                    return (
+                                        <ChatItem
+                                            key={docItem.id}
+                                            onClick={() => {
+                                                dispatch(enterRoom({ roomId: docItem.id }));
+                                                onClose?.();
                                             }}
-                                            isCurrentUser
-                                        />
-                                    )}
-
-                                    {/* Online Users */}
-                                    {filteredOnlineUsers.length > 0 && (
-                                        <>
-                                            <SubSectionTitle>
-                                                <OnlineDot />
-                                                Online Now ({filteredOnlineUsers.length})
-                                            </SubSectionTitle>
-                                            {filteredOnlineUsers.map((otherUser) => (
-                                                <UserItem
-                                                    key={otherUser.uid}
-                                                    user={otherUser}
-                                                    onClick={() => handleStartDM(otherUser)}
-                                                />
-                                            ))}
-                                        </>
-                                    )}
-
-                                    {/* Offline Users */}
-                                    {filteredOfflineUsers.length > 0 && (
-                                        <>
-                                            <SubSectionTitle>
-                                                Offline ({filteredOfflineUsers.length})
-                                            </SubSectionTitle>
-                                            {filteredOfflineUsers.slice(0, 10).map((otherUser) => (
-                                                <UserItem
-                                                    key={otherUser.uid}
-                                                    user={otherUser}
-                                                    onClick={() => handleStartDM(otherUser)}
-                                                />
-                                            ))}
-                                            {filteredOfflineUsers.length > 10 && (
-                                                <ShowMoreButton onClick={() => handleMenuClick('people')}>
-                                                    View all {filteredOfflineUsers.length} users
-                                                </ShowMoreButton>
+                                        >
+                                            {userInfo.photo ? (
+                                                <ChatAvatarImg src={userInfo.photo} alt={userInfo.name} />
+                                            ) : (
+                                                <ChatAvatar>
+                                                    {getInitials(userInfo.name)}
+                                                </ChatAvatar>
                                             )}
-                                        </>
-                                    )}
-
-                                    {onlineUsers.length === 0 && offlineUsers.length === 0 && (
-                                        <EmptyState>
-                                            <PeopleOutlineIcon />
-                                            <span>No other users yet</span>
-                                        </EmptyState>
-                                    )}
-                                </>
+                                            <ChatInfo>
+                                                <ChatName>{userInfo.name}</ChatName>
+                                                <ChatPreview>Tap to continue conversation</ChatPreview>
+                                            </ChatInfo>
+                                        </ChatItem>
+                                    );
+                                })
+                            ) : (
+                                <EmptyState>
+                                    <ChatIcon />
+                                    <span>No chats yet. Start a new conversation!</span>
+                                </EmptyState>
                             )}
                         </SectionContent>
                     </Section>
@@ -460,22 +344,22 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => {
                                 </SectionIcon>
                                 <span>Groups</span>
                             </SectionHeaderLeft>
-                            <GroupCount>{publicChannels.length}</GroupCount>
+                            <SectionBadge>{groupChannels.length}</SectionBadge>
                         </SectionHeader>
 
                         <SectionContent $isExpanded={showGroups}>
-                            <AddGroupButton onClick={() => dispatch(setShowCreateChannelModal(true))}>
+                            <AddButton onClick={() => dispatch(setShowCreateChannelModal(true))}>
                                 <AddIcon />
                                 <span>Create New Group</span>
-                            </AddGroupButton>
+                            </AddButton>
 
                             {channelsLoading ? (
                                 <>
-                                    <UserSkeleton />
-                                    <UserSkeleton />
+                                    <ChannelSkeleton />
+                                    <ChannelSkeleton />
                                 </>
-                            ) : (
-                                publicChannels.map((docItem) => (
+                            ) : filteredGroups.length > 0 ? (
+                                filteredGroups.map((docItem) => (
                                     <SidebarOption
                                         key={docItem.id}
                                         id={docItem.id}
@@ -487,21 +371,37 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => {
                                         members={docItem.data().members || []}
                                     />
                                 ))
+                            ) : (
+                                <EmptyState>
+                                    <GroupsIcon />
+                                    <span>No groups yet. Create one!</span>
+                                </EmptyState>
                             )}
                         </SectionContent>
                     </Section>
+
+                    <Divider />
+
+                    {/* Quick Menu */}
+                    <QuickMenu>
+                        <QuickMenuItem onClick={() => handleMenuClick('saved')}>
+                            <QuickMenuIcon><BookmarkBorderIcon /></QuickMenuIcon>
+                            <span>Saved</span>
+                        </QuickMenuItem>
+                        <QuickMenuItem onClick={() => handleMenuClick('people')}>
+                            <QuickMenuIcon><PeopleOutlineIcon /></QuickMenuIcon>
+                            <span>People</span>
+                        </QuickMenuItem>
+                        <QuickMenuItem onClick={() => handleMenuClick('settings')}>
+                            <QuickMenuIcon><SettingsIcon /></QuickMenuIcon>
+                            <span>Settings</span>
+                        </QuickMenuItem>
+                    </QuickMenu>
                 </SidebarContent>
 
+                {/* Footer */}
                 <SidebarFooter>
-                    <FooterContent>
-                        <FooterIcon>
-                            <TagIcon />
-                        </FooterIcon>
-                        <FooterText>
-                            <strong>Thryve Chat</strong>
-                            <span>Built with React & Firebase</span>
-                        </FooterText>
-                    </FooterContent>
+                    <FooterText>Made with 💞</FooterText>
                 </SidebarFooter>
             </SidebarContainer>
 
@@ -583,8 +483,9 @@ const SidebarContainer = styled.aside<{ $isOpen: boolean }>`
     height: calc(100vh - var(--header-height));
     height: calc(100dvh - var(--header-height));
     margin-top: var(--header-height);
-    background: var(--bg-primary);
-    border-right: 1px solid var(--border-light);
+    background: linear-gradient(180deg, #FAFBFC 0%, #F0F2F5 100%);
+    border-right: none;
+    box-shadow: 4px 0 24px rgba(99, 56, 246, 0.06);
     position: relative;
     z-index: 10;
     overflow: hidden;
@@ -601,13 +502,11 @@ const SidebarContainer = styled.aside<{ $isOpen: boolean }>`
         height: -webkit-fill-available;
         margin-top: 0;
         z-index: 999;
-        box-shadow: ${({ $isOpen }) => ($isOpen ? 'var(--shadow-2xl)' : 'none')};
-        /* GPU acceleration for smooth transforms */
+        box-shadow: ${({ $isOpen }) => ($isOpen ? '8px 0 40px rgba(0, 0, 0, 0.25)' : 'none')};
         transform: ${({ $isOpen }) => ($isOpen ? 'translate3d(0, 0, 0)' : 'translate3d(-100%, 0, 0)')};
         transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
         will-change: transform;
         backface-visibility: hidden;
-        /* Safe area padding for notch devices */
         padding-top: env(safe-area-inset-top, 0);
         padding-left: env(safe-area-inset-left, 0);
     }
@@ -645,9 +544,12 @@ const SidebarHeader = styled.div`
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: var(--spacing-lg);
-    border-bottom: 1px solid var(--border-light);
-    background: linear-gradient(180deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+    padding: 12px 14px;
+    background: linear-gradient(135deg, #6338F6 0%, #855CFF 100%);
+    border-bottom: none;
+    margin: 8px;
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(99, 56, 246, 0.3);
 `;
 
 const WorkspaceInfo = styled.div`
@@ -657,18 +559,18 @@ const WorkspaceInfo = styled.div`
 `;
 
 const LogoContainer = styled.div`
-    width: 48px;
-    height: 48px;
-    border-radius: var(--radius-xl);
-    background: var(--gradient-primary);
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: var(--shadow-glow);
-    animation: ${breathe} 4s ease-in-out infinite;
+    border: 1px solid rgba(255, 255, 255, 0.3);
 
     svg {
-        font-size: 1.5rem;
+        font-size: 1.2rem;
         color: white;
     }
 `;
@@ -680,13 +582,10 @@ const WorkspaceDetails = styled.div`
 `;
 
 const WorkspaceName = styled.h2`
-    font-size: 1.4rem;
-    font-weight: 800;
-    background: var(--gradient-primary);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    letter-spacing: -0.5px;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: white;
+    letter-spacing: -0.3px;
 `;
 
 const WorkspaceStatus = styled.div`
@@ -694,14 +593,15 @@ const WorkspaceStatus = styled.div`
     align-items: center;
     gap: var(--spacing-xs);
     font-size: 0.8rem;
-    color: var(--text-secondary);
+    color: rgba(255, 255, 255, 0.85);
 `;
 
 const StatusDot = styled.span`
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: var(--accent-success);
+    background: #00FF88;
+    box-shadow: 0 0 8px #00FF88;
     animation: ${pulse} 2s ease-in-out infinite;
 `;
 
@@ -709,19 +609,20 @@ const NewMessageButton = styled.button`
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 44px;
-    height: 44px;
-    border-radius: var(--radius-lg);
-    background: var(--gradient-primary);
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
     color: white;
-    box-shadow: var(--shadow-glow);
+    border: 1px solid rgba(255, 255, 255, 0.3);
     transition: all var(--transition-fast);
 
-    svg { font-size: 1.4rem; }
+    svg { font-size: 1.1rem; }
 
     &:hover {
-        transform: scale(1.1) rotate(90deg);
-        box-shadow: var(--shadow-glow-strong);
+        background: rgba(255, 255, 255, 0.3);
+        transform: rotate(90deg);
     }
 
     &:active { transform: scale(0.95); }
@@ -731,7 +632,7 @@ const SidebarContent = styled.div`
     flex: 1;
     overflow-y: auto;
     overflow-x: hidden;
-    padding: var(--spacing-md) 0;
+    padding: 4px 0;
     /* Smooth momentum scrolling */
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-y: contain;
@@ -761,73 +662,25 @@ const SidebarContent = styled.div`
     }
 `;
 
-const MenuSection = styled.div`
-    padding: 0 var(--spacing-md);
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-`;
-
-const MenuItem = styled.button`
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-md);
-    width: 100%;
-    padding: var(--spacing-sm) var(--spacing-md);
-    border-radius: var(--radius-lg);
-    color: var(--text-secondary);
-    font-size: 0.95rem;
-    font-weight: 500;
-    transition: all var(--transition-fast);
-    background: transparent;
-    text-align: left;
-
-    &:hover {
-        background: var(--purple-50);
-        color: var(--accent-primary);
-        transform: translateX(4px);
-    }
-
-    &:active { transform: scale(0.98); }
-`;
-
-const MenuIcon = styled.span`
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    border-radius: var(--radius-md);
-    background: var(--bg-tertiary);
-    transition: all var(--transition-fast);
-
-    svg { font-size: 1.1rem; }
-
-    ${MenuItem}:hover & {
-        background: var(--accent-primary);
-        color: white;
-    }
-`;
-
 const SearchContainer = styled.div`
     display: flex;
     align-items: center;
-    gap: var(--spacing-sm);
-    margin: 0 var(--spacing-md);
-    padding: var(--spacing-sm) var(--spacing-md);
-    background: var(--bg-tertiary);
-    border-radius: var(--radius-lg);
-    border: 1px solid var(--border-light);
-    transition: all var(--transition-fast);
+    gap: 8px;
+    margin: 4px 8px 8px;
+    padding: 8px 12px;
+    background: white;
+    border-radius: 10px;
+    border: 1px solid #E8E8E9;
+    transition: all 0.2s ease;
 
     &:focus-within {
-        border-color: var(--accent-primary);
-        box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+        border-color: #6338F6;
+        box-shadow: 0 0 0 2px rgba(99, 56, 246, 0.1);
     }
 
     svg {
-        font-size: 1.1rem;
-        color: var(--text-muted);
+        font-size: 1rem;
+        color: #9CA3AF;
     }
 `;
 
@@ -865,12 +718,11 @@ const Divider = styled.hr`
     border: none;
     height: 1px;
     background: linear-gradient(90deg, transparent, var(--border-light), transparent);
-    margin: var(--spacing-md) var(--spacing-lg);
+    margin: 6px 12px;
 `;
 
 const Section = styled.div`
-    padding: 0 var(--spacing-md);
-    /* Ensure section is visible */
+    padding: 0 8px;
     position: relative;
     z-index: 1;
 `;
@@ -879,12 +731,11 @@ const SectionHeader = styled.div`
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: var(--spacing-sm) var(--spacing-md);
-    border-radius: var(--radius-md);
+    padding: 6px 8px;
+    border-radius: 8px;
     cursor: pointer;
     transition: all var(--transition-fast);
-    /* Touch optimization */
-    min-height: 48px;
+    min-height: 32px;
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
     user-select: none;
@@ -894,11 +745,6 @@ const SectionHeader = styled.div`
     &:active {
         background: var(--purple-50);
         transform: scale(0.99);
-    }
-
-    @media (max-width: 768px) {
-        padding: var(--spacing-md);
-        min-height: 52px;
     }
 `;
 
@@ -939,350 +785,205 @@ const SectionIcon = styled.span`
 
 const SectionContent = styled.div<{ $isExpanded: boolean }>`
     display: ${({ $isExpanded }) => ($isExpanded ? 'block' : 'none')};
-    padding-top: ${({ $isExpanded }) => ($isExpanded ? 'var(--spacing-sm)' : '0')};
-    /* Ensure content is visible */
+    padding-top: ${({ $isExpanded }) => ($isExpanded ? '4px' : '0')};
     overflow: visible;
-
-    /* Animation for smooth appearance */
-    animation: ${({ $isExpanded }) => ($isExpanded ? 'fadeInSection 0.25s ease-out' : 'none')};
-
-    @keyframes fadeInSection {
-        from {
-            opacity: 0;
-            transform: translateY(-8px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
 `;
 
-const BadgeGroup = styled.div`
-    display: flex;
-    gap: var(--spacing-xs);
-`;
-
-const GroupCount = styled.span`
-    padding: 4px 10px;
+const SectionBadge = styled.span`
+    padding: 2px 8px;
     background: var(--purple-50);
     color: var(--accent-primary);
     border-radius: var(--radius-full);
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     font-weight: 700;
 `;
 
-const OnlineBadge = styled.span`
+const AddButton = styled.button`
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
-    background: rgba(34, 197, 94, 0.15);
-    color: var(--accent-success);
-    border-radius: var(--radius-full);
-    font-size: 0.75rem;
+    gap: 8px;
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, var(--purple-50) 0%, rgba(124, 58, 237, 0.1) 100%);
+    border: 1px dashed var(--purple-200);
+    color: var(--accent-primary);
+    font-size: 0.8rem;
     font-weight: 600;
-    /* Ensure visibility */
-    white-space: nowrap;
-    flex-shrink: 0;
-
-    .dot {
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        background: var(--accent-success);
-        animation: ${pulse} 1.5s ease-in-out infinite;
-        flex-shrink: 0;
-    }
-
-    @media (max-width: 768px) {
-        padding: 8px 14px;
-        font-size: 0.8rem;
-    }
-`;
-
-const SubSectionTitle = styled.div`
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-    padding: var(--spacing-sm) var(--spacing-md);
-    margin-top: var(--spacing-md);
-    margin-bottom: var(--spacing-xs);
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    /* Ensure visibility on mobile */
-    position: relative;
-    z-index: 1;
-
-    @media (max-width: 768px) {
-        padding: var(--spacing-md);
-        font-size: 0.8rem;
-        background: var(--bg-secondary);
-        border-radius: var(--radius-md);
-        margin: var(--spacing-sm) var(--spacing-sm) var(--spacing-xs);
-    }
-`;
-
-const OnlineDot = styled.span`
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--accent-success);
-    animation: ${pulse} 2s ease-in-out infinite;
-    flex-shrink: 0;
-`;
-
-const UserItemContainer = styled.div<{ $clickable?: boolean; $offline?: boolean }>`
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-md);
-    padding: var(--spacing-sm) var(--spacing-md);
-    border-radius: var(--radius-lg);
-    cursor: ${({ $clickable }) => ($clickable ? 'pointer' : 'default')};
-    opacity: ${({ $offline }) => ($offline ? 0.65 : 1)};
+    cursor: pointer;
     transition: all var(--transition-fast);
-    /* Ensure visibility */
-    min-height: 52px;
-    /* Touch optimization */
-    -webkit-tap-highlight-color: transparent;
-    touch-action: manipulation;
+    margin-bottom: 4px;
 
-    ${({ $clickable }) =>
-        $clickable &&
-        css`
-            &:hover {
-                background: var(--purple-50);
-                opacity: 1;
-                transform: translateX(4px);
-            }
+    svg { font-size: 1rem; }
 
-            &:active {
-                transform: scale(0.98);
-                background: var(--purple-100);
-            }
-        `}
+    &:hover {
+        background: var(--purple-100);
+        border-style: solid;
+    }
 
-    @media (max-width: 768px) {
-        padding: var(--spacing-md);
-        min-height: 56px;
+    &:active { transform: scale(0.98); }
+`;
+
+const ChatItem = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    margin: 2px 0;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: white;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    border: 1px solid transparent;
+
+    &:hover {
+        background: linear-gradient(135deg, #FAFBFC 0%, #F0EBFF 100%);
+        transform: translateX(4px);
+        border-color: #6338F6;
+    }
+
+    &:active {
+        transform: scale(0.98);
     }
 `;
 
-const UserAvatarWrapper = styled.div`
-    position: relative;
-    flex-shrink: 0;
-`;
-
-const UserAvatar = styled.img`
-    width: 40px;
-    height: 40px;
+const ChatAvatar = styled.div`
+    width: 36px;
+    height: 36px;
     border-radius: var(--radius-full);
-    object-fit: cover;
-    border: 2px solid var(--bg-primary);
-    box-shadow: var(--shadow-sm);
-`;
-
-const UserAvatarPlaceholder = styled.div<{ $online?: boolean }>`
-    width: 40px;
-    height: 40px;
-    border-radius: var(--radius-full);
-    background: ${({ $online }) => $online ? 'var(--gradient-primary)' : 'var(--purple-100)'};
+    background: linear-gradient(135deg, #6338F6 0%, #855CFF 100%);
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 2px solid var(--bg-primary);
-    box-shadow: var(--shadow-sm);
-
-    svg {
-        font-size: 1.3rem;
-        color: ${({ $online }) => $online ? 'white' : 'var(--accent-primary)'};
-    }
+    flex-shrink: 0;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: white;
+    text-transform: uppercase;
 `;
 
-const OnlineIndicator = styled.span<{ $isOnline: boolean }>`
-    position: absolute;
-    right: 0;
-    bottom: 0;
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background: ${({ $isOnline }) => ($isOnline ? 'var(--accent-success)' : 'var(--text-muted)')};
-    border: 2px solid var(--bg-primary);
-    ${({ $isOnline }) =>
-        $isOnline &&
-        css`
-            animation: ${pulse} 2s ease-in-out infinite;
-        `}
+const ChatAvatarImg = styled.img`
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-full);
+    object-fit: cover;
+    flex-shrink: 0;
+    border: 2px solid #F0EBFF;
 `;
 
-const UserInfo = styled.div`
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    min-width: 0;
+const ChatInfo = styled.div`
     flex: 1;
+    min-width: 0;
 `;
 
-const UserName = styled.span`
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-    font-size: 0.9rem;
+const ChatName = styled.div`
+    font-size: 0.85rem;
     font-weight: 600;
-    color: var(--text-primary);
+    color: #6338F6;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    line-height: 1.2;
 `;
 
-const YouBadge = styled.span`
-    padding: 2px 6px;
-    background: var(--purple-100);
-    color: var(--accent-primary);
-    border-radius: var(--radius-sm);
-    font-size: 0.65rem;
-    font-weight: 700;
-    text-transform: uppercase;
-`;
-
-const UserStatus = styled.span<{ $online?: boolean }>`
-    font-size: 0.75rem;
-    color: ${({ $online }) => ($online ? 'var(--accent-success)' : 'var(--text-muted)')};
-    font-weight: ${({ $online }) => ($online ? '500' : '400')};
-`;
-
-const MessageBadge = styled.div`
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    border-radius: var(--radius-full);
-    background: var(--purple-50);
-    color: var(--accent-primary);
-    opacity: 0;
-    transform: scale(0.8);
-    transition: all var(--transition-fast);
-
-    svg { font-size: 0.9rem; }
-
-    ${UserItemContainer}:hover & {
-        opacity: 1;
-        transform: scale(1);
-    }
+const ChatPreview = styled.div`
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    line-height: 1.2;
 `;
 
 const EmptyState = styled.div`
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: var(--spacing-sm);
-    padding: var(--spacing-xl) var(--spacing-md);
+    gap: 4px;
+    padding: 12px 8px;
     text-align: center;
     color: var(--text-muted);
 
     svg {
-        font-size: 2rem;
+        font-size: 1.5rem;
         opacity: 0.5;
     }
 
     span {
-        font-size: 0.85rem;
+        font-size: 0.75rem;
     }
 `;
 
-const ShowMoreButton = styled.button`
-    width: 100%;
-    padding: var(--spacing-sm) var(--spacing-md);
-    margin-top: var(--spacing-xs);
-    border-radius: var(--radius-md);
-    background: transparent;
-    border: 1px dashed var(--border-light);
-    color: var(--accent-primary);
-    font-size: 0.8rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all var(--transition-fast);
-
-    &:hover {
-        background: var(--purple-50);
-        border-style: solid;
-    }
-`;
-
-const AddGroupButton = styled.button`
+const QuickMenu = styled.div`
     display: flex;
+    gap: 6px;
+    padding: 0 8px;
+    margin-bottom: 4px;
+`;
+
+const QuickMenuItem = styled.button`
+    flex: 1;
+    display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: var(--spacing-md);
-    width: 100%;
-    padding: var(--spacing-md);
-    border-radius: var(--radius-lg);
-    background: linear-gradient(135deg, var(--purple-50) 0%, rgba(124, 58, 237, 0.1) 100%);
-    border: 1px dashed var(--purple-200);
-    color: var(--accent-primary);
-    font-size: 0.9rem;
+    gap: 4px;
+    padding: 8px 6px;
+    border-radius: 8px;
+    background: white;
+    color: #4B5563;
+    font-size: 0.65rem;
     font-weight: 600;
     cursor: pointer;
-    transition: all var(--transition-fast);
-    margin-bottom: var(--spacing-sm);
-
-    svg { font-size: 1.2rem; }
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+    border: 1px solid transparent;
 
     &:hover {
-        background: var(--purple-100);
-        border-style: solid;
-        transform: translateY(-2px);
-        box-shadow: var(--shadow-md);
+        background: linear-gradient(135deg, #F0EBFF 0%, #E8E0FF 100%);
+        color: #6338F6;
+        border-color: #6338F6;
     }
 
-    &:active { transform: scale(0.98); }
+    &:active {
+        transform: scale(0.98);
+    }
 `;
 
-const SidebarFooter = styled.div`
-    padding: var(--spacing-md) var(--spacing-lg);
-    border-top: 1px solid var(--border-light);
-    background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
-`;
-
-const FooterContent = styled.div`
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-md);
-`;
-
-const FooterIcon = styled.div`
-    width: 36px;
-    height: 36px;
-    border-radius: var(--radius-md);
-    background: var(--purple-50);
+const QuickMenuIcon = styled.span`
     display: flex;
     align-items: center;
     justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #F0EBFF 0%, #E8E0FF 100%);
+    color: #6338F6;
+    transition: all 0.2s ease;
 
-    svg {
-        font-size: 1.1rem;
-        color: var(--accent-primary);
+    svg { font-size: 0.95rem; }
+
+    ${QuickMenuItem}:hover & {
+        background: linear-gradient(135deg, #6338F6 0%, #855CFF 100%);
+        color: white;
     }
 `;
 
-const FooterText = styled.div`
+const SidebarFooter = styled.div`
+    padding: 8px;
+    border-top: 1px solid var(--border-light);
+    background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
     display: flex;
-    flex-direction: column;
-    gap: 2px;
+    justify-content: center;
+`;
 
-    strong {
-        font-size: 0.85rem;
-        font-weight: 600;
-        color: var(--text-primary);
-    }
-
-    span {
-        font-size: 0.7rem;
-        color: var(--text-muted);
-    }
+const FooterText = styled.span`
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #FF4D6D;
+    display: flex;
+    align-items: center;
+    gap: 4px;
 `;
 
 // Skeleton Styles

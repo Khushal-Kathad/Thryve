@@ -1,12 +1,11 @@
-import React, { useState, memo, useCallback, useEffect } from 'react';
+import React, { useState, memo, useCallback, useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import styled, { keyframes } from 'styled-components';
-import DoneIcon from '@mui/icons-material/Done';
 import DoneAllIcon from '@mui/icons-material/DoneAll';
 import AddReactionOutlinedIcon from '@mui/icons-material/AddReactionOutlined';
 import ReplyIcon from '@mui/icons-material/Reply';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
-import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
@@ -14,9 +13,10 @@ import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
 import BookmarkIcon from '@mui/icons-material/Bookmark';
 import { format } from 'date-fns';
 import { db } from '../firebase';
-import { doc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion, arrayRemove, deleteDoc } from 'firebase/firestore';
 import { Timestamp } from 'firebase/firestore';
 import { toggleSaveMessage, selectIsMessageSaved } from '../features/appSlice';
+import { useToast } from '../context/ToastContext';
 import type { RootState } from '../types';
 
 const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🔥', '🎉', '👏'];
@@ -64,6 +64,7 @@ const Message: React.FC<MessageProps> = ({
     onReply
 }) => {
     const dispatch = useDispatch();
+    const { showToast } = useToast();
     const isSaved = useSelector((state: RootState) => selectIsMessageSaved(id)(state));
     const [showActions, setShowActions] = useState(false);
     const [showReactions, setShowReactions] = useState(false);
@@ -71,15 +72,41 @@ const Message: React.FC<MessageProps> = ({
     const [imageError, setImageError] = useState(false);
     const [showImagePreview, setShowImagePreview] = useState(false);
     const [copiedMessage, setCopiedMessage] = useState(false);
+    const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     // Determine if this is the current user's message
     const isSent = currentUserName ? users === currentUserName : false;
+
+    // Clear timeout on unmount
+    useEffect(() => {
+        return () => {
+            if (hideTimeoutRef.current) {
+                clearTimeout(hideTimeoutRef.current);
+            }
+        };
+    }, []);
 
     // Reset image states when imageUrl changes
     useEffect(() => {
         setImageLoaded(false);
         setImageError(false);
     }, [imageUrl]);
+
+    const handleMouseEnter = useCallback(() => {
+        if (hideTimeoutRef.current) {
+            clearTimeout(hideTimeoutRef.current);
+            hideTimeoutRef.current = null;
+        }
+        setShowActions(true);
+    }, []);
+
+    const handleMouseLeave = useCallback(() => {
+        // Use a delay to allow mouse to move to actions/reactions
+        hideTimeoutRef.current = setTimeout(() => {
+            setShowActions(false);
+            setShowReactions(false);
+        }, 300);
+    }, []);
 
     const formatTime = (ts: Timestamp | null): string => {
         if (!ts) return '';
@@ -166,6 +193,32 @@ const Message: React.FC<MessageProps> = ({
         setShowActions(false);
     };
 
+    const handleDelete = async () => {
+        if (!roomId || !id || isPending) {
+            showToast('Cannot delete this message', 'error');
+            return;
+        }
+
+        // Only allow sender to delete their own messages
+        if (!isSent) {
+            showToast('You can only delete your own messages', 'error');
+            return;
+        }
+
+        const confirmDelete = window.confirm('Are you sure you want to delete this message?');
+        if (!confirmDelete) return;
+
+        try {
+            const messageRef = doc(db, 'rooms', roomId, 'messages', id);
+            await deleteDoc(messageRef);
+            showToast('Message deleted', 'success');
+        } catch (error) {
+            console.error('Error deleting message:', error);
+            showToast('Failed to delete message', 'error');
+        }
+        setShowActions(false);
+    };
+
     const getTotalReactions = () => {
         if (!reactions) return 0;
         return Object.values(reactions).reduce((total, users) => total + users.length, 0);
@@ -184,11 +237,8 @@ const Message: React.FC<MessageProps> = ({
         <>
             <MessageWrapper
                 $isSent={isSent}
-                onMouseEnter={() => setShowActions(true)}
-                onMouseLeave={() => {
-                    setShowActions(false);
-                    setShowReactions(false);
-                }}
+                onMouseEnter={handleMouseEnter}
+                onMouseLeave={handleMouseLeave}
             >
                 {/* Avatar - only show for received messages */}
                 {!isSent && (
@@ -291,7 +341,11 @@ const Message: React.FC<MessageProps> = ({
 
                     {/* Quick actions - Moved inside BubbleContainer to fix positioning */}
                     {showActions && !isPending && (
-                        <ActionsContainer $isSent={isSent}>
+                        <ActionsContainer
+                            $isSent={isSent}
+                            onMouseEnter={handleMouseEnter}
+                            onMouseLeave={handleMouseLeave}
+                        >
                             <ActionBtn
                                 onClick={() => setShowReactions(!showReactions)}
                                 title="Add reaction"
@@ -316,12 +370,22 @@ const Message: React.FC<MessageProps> = ({
                             >
                                 {isSaved ? <BookmarkIcon /> : <BookmarkBorderIcon />}
                             </ActionBtn>
-                            <ActionBtn title="More">
-                                <MoreHorizIcon />
-                            </ActionBtn>
+                            {isSent && (
+                                <ActionBtn
+                                    title="Delete"
+                                    onClick={handleDelete}
+                                    $isDelete
+                                >
+                                    <DeleteOutlineIcon />
+                                </ActionBtn>
+                            )}
 
                             {showReactions && (
-                                <ReactionPicker $isSent={isSent}>
+                                <ReactionPicker
+                                    $isSent={isSent}
+                                    onMouseEnter={handleMouseEnter}
+                                    onMouseLeave={handleMouseLeave}
+                                >
                                     {QUICK_REACTIONS.map((emoji) => (
                                         <ReactionBtn
                                             key={emoji}
@@ -748,22 +812,25 @@ const ActionsContainer = styled.div<{ $isSent: boolean }>`
     }
 `;
 
-const ActionBtn = styled.button<{ $isActive?: boolean }>`
+const ActionBtn = styled.button<{ $isActive?: boolean; $isDelete?: boolean }>`
     display: flex;
     align-items: center;
     justify-content: center;
     width: 32px;
     height: 32px;
     border-radius: 8px;
-    color: ${props => props.$isActive ? 'var(--accent-primary)' : 'var(--text-muted)'};
+    color: ${props => {
+        if (props.$isDelete) return 'var(--text-muted)';
+        return props.$isActive ? 'var(--accent-primary)' : 'var(--text-muted)';
+    }};
     background: ${props => props.$isActive ? 'var(--purple-50)' : 'transparent'};
     transition: all 0.15s ease;
 
     svg { font-size: 1rem; }
 
     &:hover {
-        background: var(--purple-50);
-        color: var(--accent-primary);
+        background: ${props => props.$isDelete ? 'rgba(253, 58, 85, 0.1)' : 'var(--purple-50)'};
+        color: ${props => props.$isDelete ? '#FD3A55' : 'var(--accent-primary)'};
     }
 `;
 

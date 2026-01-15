@@ -13,7 +13,8 @@ import { userService, AppUser } from '../services/userService';
 import { useToast } from '../context/ToastContext';
 
 interface MembersListProps {
-    roomMessages: QuerySnapshot<DocumentData> | undefined;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    roomMessages: QuerySnapshot<any, DocumentData> | undefined;
     currentUserId: string;
     currentUserName: string;
     currentUserPhoto: string;

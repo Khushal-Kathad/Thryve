@@ -91,7 +91,7 @@ const Overlay = styled.div`
 const DialogBox = styled.div`
     background: rgba(30, 35, 60, 0.98);
     backdrop-filter: blur(20px);
-    border-radius: 16px;
+    border-radius: var(--radius-lg);
     border: 1px solid rgba(255, 255, 255, 0.1);
     padding: 24px;
     min-width: 320px;
@@ -145,11 +145,11 @@ const CancelButton = styled(Button)`
 `;
 
 const ConfirmButton = styled(Button)<{ $danger?: boolean }>`
-    background: ${(props) => (props.$danger ? '#e94560' : '#5865f2')};
+    background: ${(props) => (props.$danger ? 'var(--accent-danger)' : 'var(--accent-primary)')};
     border: none;
     color: #ffffff;
 
     &:hover {
-        background: ${(props) => (props.$danger ? '#d63850' : '#4752c4')};
+        background: ${(props) => (props.$danger ? '#DC2020' : 'var(--purple-700)')};
     }
 `;
