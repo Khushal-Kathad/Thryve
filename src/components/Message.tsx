@@ -1,4 +1,4 @@
-import React, { useState, memo, useCallback } from 'react';
+import React, { useState, memo, useCallback, useEffect } from 'react';
 import styled, { keyframes } from 'styled-components';
 import DoneIcon from '@mui/icons-material/Done';
 import DoneAllIcon from '@mui/icons-material/DoneAll';
@@ -61,11 +61,18 @@ const Message: React.FC<MessageProps> = ({
     const [showActions, setShowActions] = useState(false);
     const [showReactions, setShowReactions] = useState(false);
     const [imageLoaded, setImageLoaded] = useState(false);
+    const [imageError, setImageError] = useState(false);
     const [showImagePreview, setShowImagePreview] = useState(false);
     const [copiedMessage, setCopiedMessage] = useState(false);
 
     // Determine if this is the current user's message
     const isSent = currentUserName ? users === currentUserName : false;
+
+    // Reset image states when imageUrl changes
+    useEffect(() => {
+        setImageLoaded(false);
+        setImageError(false);
+    }, [imageUrl]);
 
     const formatTime = (ts: Timestamp | null): string => {
         if (!ts) return '';
@@ -88,12 +95,18 @@ const Message: React.FC<MessageProps> = ({
     };
 
     const handleReaction = useCallback(async (emoji: string) => {
-        if (!userId || !roomId || !id || isPending) return;
+        if (!userId || !roomId || !id || isPending) {
+            console.warn('Cannot react: missing userId, roomId, id, or message is pending', { userId, roomId, id, isPending });
+            return;
+        }
 
         const messageRef = doc(db, 'rooms', roomId, 'messages', id);
         const currentReactions = reactions || {};
         const emojiReactions = currentReactions[emoji] || [];
         const hasReacted = emojiReactions.includes(userId);
+
+        // Close the picker immediately for better UX
+        setShowReactions(false);
 
         try {
             if (hasReacted) {
@@ -105,11 +118,12 @@ const Message: React.FC<MessageProps> = ({
                     [`reactions.${emoji}`]: arrayUnion(userId)
                 });
             }
-        } catch (error) {
-            console.error('Error updating reaction:', error);
+            console.log('Reaction updated successfully:', emoji, hasReacted ? 'removed' : 'added');
+        } catch (error: any) {
+            console.error('Error updating reaction:', error?.message || error);
+            // Show a visual indication that the reaction failed
+            alert('Failed to add reaction. Please try again.');
         }
-
-        setShowReactions(false);
     }, [userId, roomId, id, reactions, isPending]);
 
     const hasUserReacted = useCallback((emoji: string): boolean => {
@@ -208,14 +222,23 @@ const Message: React.FC<MessageProps> = ({
                                 onClick={() => setShowImagePreview(true)}
                                 $isOnly={!message}
                             >
-                                {!imageLoaded && <ImageSkeleton />}
-                                <MessageImage
-                                    src={imageUrl}
-                                    alt="Shared"
-                                    loading="lazy"
-                                    onLoad={() => setImageLoaded(true)}
-                                    $loaded={imageLoaded}
-                                />
+                                {!imageLoaded && !imageError && <ImageSkeleton />}
+                                {imageError ? (
+                                    <ImageErrorPlaceholder>
+                                        <span>Failed to load image</span>
+                                    </ImageErrorPlaceholder>
+                                ) : (
+                                    <MessageImage
+                                        src={imageUrl}
+                                        alt="Shared"
+                                        onLoad={() => setImageLoaded(true)}
+                                        onError={() => {
+                                            console.error('Image failed to load:', imageUrl?.substring(0, 50));
+                                            setImageError(true);
+                                        }}
+                                        $loaded={imageLoaded}
+                                    />
+                                )}
                             </ImageContainer>
                         )}
 
@@ -506,6 +529,7 @@ const ImageContainer = styled.div<{ $isOnly?: boolean }>`
     overflow: hidden;
     cursor: pointer;
     position: relative;
+    min-height: 100px;
 `;
 
 const ImageSkeleton = styled.div`
@@ -524,8 +548,11 @@ const MessageImage = styled.img<{ $loaded: boolean }>`
     min-width: 150px;
     max-height: 350px;
     object-fit: cover;
-    display: ${props => props.$loaded ? 'block' : 'none'};
-    transition: transform 0.2s ease, filter 0.2s ease;
+    opacity: ${props => props.$loaded ? 1 : 0};
+    position: ${props => props.$loaded ? 'relative' : 'absolute'};
+    top: 0;
+    left: 0;
+    transition: opacity 0.3s ease, transform 0.2s ease, filter 0.2s ease;
 
     &:hover {
         filter: brightness(0.95);
@@ -535,6 +562,21 @@ const MessageImage = styled.img<{ $loaded: boolean }>`
         max-width: 200px;
         max-height: 250px;
     }
+`;
+
+const ImageErrorPlaceholder = styled.div`
+    width: 100%;
+    min-width: 150px;
+    min-height: 100px;
+    max-width: 280px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-tertiary);
+    border-radius: 14px;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    padding: var(--spacing-md);
 `;
 
 const MessageText = styled.p<{ $isSent: boolean; $hasImage?: boolean }>`
