@@ -1,4 +1,5 @@
 import React, { useState, memo, useCallback, useEffect } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import styled, { keyframes } from 'styled-components';
 import DoneIcon from '@mui/icons-material/Done';
 import DoneAllIcon from '@mui/icons-material/DoneAll';
@@ -9,10 +10,14 @@ import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
+import BookmarkIcon from '@mui/icons-material/Bookmark';
 import { format } from 'date-fns';
 import { db } from '../firebase';
 import { doc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { Timestamp } from 'firebase/firestore';
+import { toggleSaveMessage, selectIsMessageSaved } from '../features/appSlice';
+import type { RootState } from '../types';
 
 const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🔥', '🎉', '👏'];
 
@@ -58,6 +63,8 @@ const Message: React.FC<MessageProps> = ({
     replyTo,
     onReply
 }) => {
+    const dispatch = useDispatch();
+    const isSaved = useSelector((state: RootState) => selectIsMessageSaved(id)(state));
     const [showActions, setShowActions] = useState(false);
     const [showReactions, setShowReactions] = useState(false);
     const [imageLoaded, setImageLoaded] = useState(false);
@@ -151,6 +158,11 @@ const Message: React.FC<MessageProps> = ({
                 imageUrl
             });
         }
+        setShowActions(false);
+    };
+
+    const handleSave = () => {
+        dispatch(toggleSaveMessage({ messageId: id, roomId }));
         setShowActions(false);
     };
 
@@ -277,6 +289,53 @@ const Message: React.FC<MessageProps> = ({
                         </MessageFooter>
                     </MessageBubble>
 
+                    {/* Quick actions - Moved inside BubbleContainer to fix positioning */}
+                    {showActions && !isPending && (
+                        <ActionsContainer $isSent={isSent}>
+                            <ActionBtn
+                                onClick={() => setShowReactions(!showReactions)}
+                                title="Add reaction"
+                                $isActive={showReactions}
+                            >
+                                <AddReactionOutlinedIcon />
+                            </ActionBtn>
+                            <ActionBtn title="Reply" onClick={handleReply}>
+                                <ReplyIcon />
+                            </ActionBtn>
+                            <ActionBtn
+                                onClick={copyMessage}
+                                title={copiedMessage ? "Copied!" : "Copy"}
+                                $isActive={copiedMessage}
+                            >
+                                <ContentCopyIcon />
+                            </ActionBtn>
+                            <ActionBtn
+                                onClick={handleSave}
+                                title={isSaved ? "Unsave" : "Save"}
+                                $isActive={isSaved}
+                            >
+                                {isSaved ? <BookmarkIcon /> : <BookmarkBorderIcon />}
+                            </ActionBtn>
+                            <ActionBtn title="More">
+                                <MoreHorizIcon />
+                            </ActionBtn>
+
+                            {showReactions && (
+                                <ReactionPicker $isSent={isSent}>
+                                    {QUICK_REACTIONS.map((emoji) => (
+                                        <ReactionBtn
+                                            key={emoji}
+                                            onClick={() => handleReaction(emoji)}
+                                            $isActive={hasUserReacted(emoji)}
+                                        >
+                                            {emoji}
+                                        </ReactionBtn>
+                                    ))}
+                                </ReactionPicker>
+                            )}
+                        </ActionsContainer>
+                    )}
+
                     {/* Reactions */}
                     {reactions && getTotalReactions() > 0 && (
                         <ReactionsBar $isSent={isSent}>
@@ -299,45 +358,7 @@ const Message: React.FC<MessageProps> = ({
                     )}
                 </BubbleContainer>
 
-                {/* Quick actions */}
-                {showActions && !isPending && (
-                    <ActionsContainer $isSent={isSent}>
-                        <ActionBtn
-                            onClick={() => setShowReactions(!showReactions)}
-                            title="Add reaction"
-                            $isActive={showReactions}
-                        >
-                            <AddReactionOutlinedIcon />
-                        </ActionBtn>
-                        <ActionBtn title="Reply" onClick={handleReply}>
-                            <ReplyIcon />
-                        </ActionBtn>
-                        <ActionBtn
-                            onClick={copyMessage}
-                            title={copiedMessage ? "Copied!" : "Copy"}
-                            $isActive={copiedMessage}
-                        >
-                            <ContentCopyIcon />
-                        </ActionBtn>
-                        <ActionBtn title="More">
-                            <MoreHorizIcon />
-                        </ActionBtn>
 
-                        {showReactions && (
-                            <ReactionPicker $isSent={isSent}>
-                                {QUICK_REACTIONS.map((emoji) => (
-                                    <ReactionBtn
-                                        key={emoji}
-                                        onClick={() => handleReaction(emoji)}
-                                        $isActive={hasUserReacted(emoji)}
-                                    >
-                                        {emoji}
-                                    </ReactionBtn>
-                                ))}
-                            </ReactionPicker>
-                        )}
-                    </ActionsContainer>
-                )}
             </MessageWrapper>
 
             {/* Image Preview Modal */}
@@ -452,6 +473,7 @@ const BubbleContainer = styled.div<{ $isSent: boolean }>`
     flex-direction: column;
     align-items: ${props => props.$isSent ? 'flex-end' : 'flex-start'};
     max-width: 70%;
+    position: relative;
 
     @media (max-width: 768px) {
         max-width: 80%;
@@ -493,9 +515,9 @@ const MessageBubble = styled.div<{ $isSent: boolean; $isPending?: boolean; $hasI
 
     &:hover {
         box-shadow: ${props => props.$isSent
-            ? '0 4px 16px rgba(124, 58, 237, 0.45)'
-            : '0 2px 8px rgba(0, 0, 0, 0.12)'
-        };
+        ? '0 4px 16px rgba(124, 58, 237, 0.45)'
+        : '0 2px 8px rgba(0, 0, 0, 0.12)'
+    };
     }
 `;
 
@@ -515,9 +537,9 @@ const BubbleTail = styled.div<{ $isSent: boolean; $hasImage?: boolean }>`
         width: 20px;
         height: 20px;
         background: ${props => props.$isSent
-            ? 'linear-gradient(135deg, #8B5CF6 0%, #A78BFA 100%)'
-            : 'var(--bg-primary)'
-        };
+        ? 'linear-gradient(135deg, #8B5CF6 0%, #A78BFA 100%)'
+        : 'var(--bg-primary)'
+    };
         border-radius: ${props => props.$isSent ? '0 0 0 15px' : '0 0 15px 0'};
         ${props => !props.$isSent && 'border: 1px solid var(--border-light); border-top: none;'}
     }
@@ -687,9 +709,6 @@ const ReactionPill = styled.button<{ $isActive?: boolean }>`
 
 const ActionsContainer = styled.div<{ $isSent: boolean }>`
     position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
-    ${props => props.$isSent ? 'left: -140px;' : 'right: -140px;'}
     display: flex;
     gap: 2px;
     background: var(--bg-primary);
@@ -698,15 +717,34 @@ const ActionsContainer = styled.div<{ $isSent: boolean }>`
     padding: 4px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
     animation: ${fadeIn} 0.15s ease-out;
-    z-index: 10;
+    z-index: 100;
+    min-width: max-content;
+
+    /* Positioning logic */
+    ${props => props.$isSent ? `
+        /* Sent messages: Show ABOVE the bubble aligned to right to avoid left-sidebar clipping */
+        top: -45px;
+        right: 0;
+        margin-right: 0;
+        transform: none;
+    ` : `
+        /* Received messages: Show to the RIGHT of the bubble (safe from sidebar) */
+        top: 50%;
+        left: 100%;
+        margin-left: 8px;
+        transform: translateY(-50%);
+    `}
 
     @media (max-width: 768px) {
-        ${props => props.$isSent
-            ? 'left: auto; right: 0;'
-            : 'left: 0; right: auto;'
-        }
-        top: -44px;
+        /* On mobile, always show above */
+        top: -45px;
         transform: none;
+        flex-wrap: nowrap;
+        
+        ${props => props.$isSent
+        ? 'right: 0; margin-right: 0;'
+        : 'left: 0; margin-left: 0;'
+    }
     }
 `;
 
@@ -849,9 +887,9 @@ const QuotedReply = styled.div<{ $isSent: boolean }>`
 
     &:hover {
         background: ${props => props.$isSent
-            ? 'rgba(255, 255, 255, 0.2)'
-            : 'var(--bg-secondary)'
-        };
+        ? 'rgba(255, 255, 255, 0.2)'
+        : 'var(--bg-secondary)'
+    };
     }
 `;
 
