@@ -14,7 +14,7 @@ import { useNetworkStatus } from './hooks/useNetworkStatus';
 import { syncService } from './services/syncService';
 import { offlineService } from './services/offlineService';
 import { useDispatch, useSelector } from 'react-redux';
-import { setPendingCount, selectActivePanel, selectShowNewMessageModal, setActivePanel } from './features/appSlice';
+import { setPendingCount, selectActivePanel, selectShowNewMessageModal, setActivePanel, updateSettings, selectSettings } from './features/appSlice';
 import { callService } from './services/callService';
 import { userService } from './services/userService';
 import {
@@ -58,6 +58,24 @@ const AppContent: React.FC = () => {
     // Panel state selectors
     const activePanel = useSelector(selectActivePanel);
     const showNewMessageModal = useSelector(selectShowNewMessageModal);
+    const settings = useSelector(selectSettings);
+
+    // Initialize theme from localStorage on mount
+    useEffect(() => {
+        const savedTheme = localStorage.getItem('theme') as 'dark' | 'light' | null;
+        if (savedTheme) {
+            dispatch(updateSettings({ theme: savedTheme }));
+            document.documentElement.setAttribute('data-theme', savedTheme);
+        } else {
+            // Default to dark theme
+            document.documentElement.setAttribute('data-theme', 'dark');
+        }
+    }, [dispatch]);
+
+    // Apply theme changes
+    useEffect(() => {
+        document.documentElement.setAttribute('data-theme', settings.theme);
+    }, [settings.theme]);
 
     // Close sidebar when switching panels on mobile
     const handleSidebarToggle = () => {

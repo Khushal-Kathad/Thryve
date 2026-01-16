@@ -271,17 +271,25 @@ const HeaderContainer = styled.header<{ $hasOfflineBanner?: boolean }>`
     padding: 0 20px;
     padding-left: max(20px, env(safe-area-inset-left, 0));
     padding-right: max(20px, env(safe-area-inset-right, 0));
-    background: linear-gradient(135deg, #6338F6 0%, #855CFF 100%);
-    border-bottom: none;
+    background: linear-gradient(135deg, #8B5CF6 0%, #7C3AED 50%, #EC4899 100%);
+    background-size: 200% 200%;
+    animation: gradientShift 8s ease infinite;
+    border-bottom: 1px solid rgba(139, 92, 246, 0.3);
     position: fixed;
     top: ${(props) => (props.$hasOfflineBanner ? '44px' : '0')};
     left: 0;
     right: 0;
     z-index: 1000;
-    transition: top 0.25s ease, background 0.25s ease;
+    transition: top 0.25s ease;
     transform: translateZ(0);
     will-change: transform;
-    box-shadow: 0 4px 20px rgba(99, 56, 246, 0.25);
+    box-shadow: 0 8px 32px rgba(139, 92, 246, 0.4);
+
+    @keyframes gradientShift {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+    }
 
     @media (min-width: 768px) {
         padding: 0 24px;
@@ -579,10 +587,13 @@ const UserMenu = styled.div`
     top: calc(100% + var(--spacing-2));
     right: 0;
     min-width: 280px;
-    background: var(--bg-primary);
-    border: 1px solid var(--border-light);
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
     border-radius: var(--radius-xl);
-    box-shadow: var(--shadow-xl);
+    box-shadow: 0 8px 32px rgba(139, 92, 246, 0.3),
+                0 0 0 1px rgba(255, 255, 255, 0.1) inset;
     overflow: hidden;
     animation: ${fadeIn} 0.2s ease-out;
     z-index: 1000;
@@ -604,34 +615,40 @@ const MenuHeader = styled.div`
     align-items: center;
     gap: var(--spacing-4);
     padding: var(--spacing-5);
-    background: var(--gradient-subtle);
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(236, 72, 153, 0.2) 100%);
+    border-bottom: 1px solid var(--glass-border);
 `;
 
 const MenuAvatar = styled(Avatar)`
     width: 52px !important;
     height: 52px !important;
-    border: 3px solid var(--accent-primary);
-    box-shadow: var(--shadow-purple);
+    border: 3px solid transparent;
+    background: linear-gradient(var(--bg-secondary), var(--bg-secondary)) padding-box,
+                linear-gradient(135deg, #8B5CF6, #EC4899, #06B6D4) border-box;
+    box-shadow: 0 0 20px rgba(139, 92, 246, 0.4);
 `;
 
 const MenuUserInfo = styled.div`
     h4 {
         font-size: var(--text-base);
-        font-weight: 600;
-        color: var(--text-primary);
+        font-weight: 700;
+        background: linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
         margin: 0 0 4px 0;
     }
 
     p {
         font-size: var(--text-sm);
-        color: var(--text-muted);
+        color: var(--text-secondary);
         margin: 0;
     }
 `;
 
 const MenuDivider = styled.div`
     height: 1px;
-    background: var(--border-light);
+    background: linear-gradient(90deg, transparent, var(--glass-border), transparent);
 `;
 
 const MenuItem = styled.button<{ $danger?: boolean }>`
@@ -640,18 +657,44 @@ const MenuItem = styled.button<{ $danger?: boolean }>`
     align-items: center;
     gap: var(--spacing-3);
     padding: var(--spacing-4) var(--spacing-5);
-    color: ${props => props.$danger ? 'var(--accent-danger)' : 'var(--text-secondary)'};
+    color: ${props => props.$danger ? '#FD3A55' : 'var(--text-secondary)'};
     font-size: var(--text-sm);
     font-weight: 500;
-    transition: all var(--transition-fast);
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
 
     svg {
         font-size: 1.25rem;
+        transition: transform 0.2s ease;
+    }
+
+    &::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: ${props => props.$danger
+            ? 'linear-gradient(90deg, transparent, rgba(253, 58, 85, 0.1), transparent)'
+            : 'linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.1), transparent)'};
+        transition: left 0.3s ease;
     }
 
     &:hover {
-        background: ${props => props.$danger ? 'rgba(239, 68, 68, 0.1)' : 'var(--surface-hover)'};
-        color: ${props => props.$danger ? 'var(--accent-danger)' : 'var(--accent-primary)'};
+        background: ${props => props.$danger
+            ? 'rgba(253, 58, 85, 0.1)'
+            : 'rgba(139, 92, 246, 0.1)'};
+        color: ${props => props.$danger ? '#FD3A55' : '#8B5CF6'};
+
+        svg {
+            transform: scale(1.1);
+        }
+
+        &::before {
+            left: 100%;
+        }
     }
 
     @media (max-width: 768px) {

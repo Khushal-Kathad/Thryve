@@ -105,6 +105,11 @@ const ripple = keyframes`
     100% { transform: scale(2); opacity: 0; }
 `;
 
+const glow = keyframes`
+    0%, 100% { box-shadow: 0 0 20px rgba(139, 92, 246, 0.4); }
+    50% { box-shadow: 0 0 30px rgba(236, 72, 153, 0.5); }
+`;
+
 // Styled Components
 const NavContainer = styled.nav`
     display: none;
@@ -112,17 +117,18 @@ const NavContainer = styled.nav`
     bottom: 0;
     left: 0;
     right: 0;
-    background: var(--glass-bg-strong);
+    background: rgba(15, 15, 26, 0.9);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    border-top: 1px solid var(--border-light);
+    border-top: 1px solid rgba(139, 92, 246, 0.2);
     padding: var(--spacing-xs) 0;
     /* Enhanced safe area handling */
     padding-bottom: max(env(safe-area-inset-bottom, 8px), 8px);
     padding-left: env(safe-area-inset-left, 0);
     padding-right: env(safe-area-inset-right, 0);
     z-index: 1000;
-    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 -8px 32px rgba(139, 92, 246, 0.15),
+                0 0 0 1px rgba(255, 255, 255, 0.05) inset;
     animation: ${slideUp} 0.3s ease-out;
     /* GPU acceleration */
     transform: translateZ(0);
@@ -151,7 +157,7 @@ const NavItem = styled.button<{ $active: boolean }>`
     padding: var(--spacing-sm) var(--spacing-xs);
     background: transparent;
     position: relative;
-    transition: transform 0.15s ease;
+    transition: transform 0.2s ease;
     min-width: 60px;
     min-height: 52px;
     /* Touch optimization */
@@ -164,29 +170,33 @@ const NavItem = styled.button<{ $active: boolean }>`
         position: absolute;
         top: 50%;
         left: 50%;
-        width: 52px;
-        height: 52px;
-        border-radius: 50%;
-        background: var(--purple-50);
-        transform: translate(-50%, -50%) scale(0);
-        transition: transform 0.2s cubic-bezier(0.32, 0.72, 0, 1);
+        width: 48px;
+        height: 48px;
+        border-radius: 14px;
+        background: ${props => props.$active
+            ? 'linear-gradient(135deg, rgba(139, 92, 246, 0.3) 0%, rgba(236, 72, 153, 0.3) 100%)'
+            : 'transparent'};
+        transform: translate(-50%, -50%) scale(${props => props.$active ? 1 : 0});
+        transition: all 0.25s cubic-bezier(0.32, 0.72, 0, 1);
         will-change: transform;
     }
 
     &:active::before {
         transform: translate(-50%, -50%) scale(1);
+        background: linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(236, 72, 153, 0.2) 100%);
     }
 
     svg {
         font-size: 1.5rem;
-        color: ${props => props.$active ? 'var(--accent-primary)' : 'var(--text-muted)'};
-        transition: color 0.15s ease, transform 0.15s ease;
+        color: ${props => props.$active ? '#8B5CF6' : 'rgba(255, 255, 255, 0.5)'};
+        transition: all 0.2s ease;
         position: relative;
         z-index: 1;
+        filter: ${props => props.$active ? 'drop-shadow(0 0 8px rgba(139, 92, 246, 0.6))' : 'none'};
     }
 
     &:active svg {
-        transform: scale(0.92);
+        transform: scale(0.9);
     }
 
     /* Landscape: horizontal layout */
@@ -211,7 +221,9 @@ const Badge = styled.span<{ $danger?: boolean }>`
     min-width: 18px;
     height: 18px;
     padding: 0 5px;
-    background: ${props => props.$danger ? 'var(--accent-danger)' : 'var(--accent-primary)'};
+    background: ${props => props.$danger
+        ? 'linear-gradient(135deg, #FD3A55 0%, #FF6B6B 100%)'
+        : 'linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%)'};
     color: white;
     font-size: 0.65rem;
     font-weight: 700;
@@ -220,17 +232,20 @@ const Badge = styled.span<{ $danger?: boolean }>`
     align-items: center;
     justify-content: center;
     animation: ${pop} 0.3s ease-out;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    box-shadow: ${props => props.$danger
+        ? '0 2px 10px rgba(253, 58, 85, 0.5)'
+        : '0 2px 10px rgba(139, 92, 246, 0.5)'};
 `;
 
 const NavLabel = styled.span<{ $active: boolean }>`
     font-size: 0.7rem;
-    font-weight: ${props => props.$active ? '600' : '500'};
-    color: ${props => props.$active ? 'var(--accent-primary)' : 'var(--text-muted)'};
+    font-weight: ${props => props.$active ? '700' : '500'};
+    color: ${props => props.$active ? '#8B5CF6' : 'rgba(255, 255, 255, 0.5)'};
     margin-top: 4px;
     position: relative;
     z-index: 1;
     transition: all 0.2s ease;
+    text-shadow: ${props => props.$active ? '0 0 10px rgba(139, 92, 246, 0.5)' : 'none'};
 `;
 
 const ActiveIndicator = styled.div`
@@ -238,9 +253,10 @@ const ActiveIndicator = styled.div`
     top: 0;
     left: 50%;
     transform: translateX(-50%);
-    width: 24px;
+    width: 32px;
     height: 3px;
-    background: var(--gradient-primary);
-    border-radius: 0 0 3px 3px;
+    background: linear-gradient(90deg, #8B5CF6 0%, #EC4899 100%);
+    border-radius: 0 0 4px 4px;
     animation: ${pop} 0.2s ease-out;
+    box-shadow: 0 2px 12px rgba(139, 92, 246, 0.6);
 `;

@@ -516,14 +516,14 @@ const AvatarPlaceholder = styled.div`
     width: 28px;
     height: 28px;
     border-radius: var(--radius-full);
-    background: var(--gradient-primary);
+    background: linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%);
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 0.65rem;
     font-weight: 600;
     color: white;
-    box-shadow: var(--shadow-sm);
+    box-shadow: 0 0 12px rgba(139, 92, 246, 0.4);
 
     @media (max-width: 480px) {
         width: 24px;
@@ -550,8 +550,11 @@ const BubbleContainer = styled.div<{ $isSent: boolean }>`
 
 const SenderName = styled.span`
     font-size: 0.7rem;
-    font-weight: 600;
-    color: var(--accent-primary);
+    font-weight: 700;
+    background: linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
     margin-bottom: 2px;
     margin-left: 12px;
 `;
@@ -564,24 +567,27 @@ const MessageBubble = styled.div<{ $isSent: boolean; $isPending?: boolean; $hasI
         : '18px 18px 18px 4px'
     };
     background: ${props => props.$isSent
-        ? 'linear-gradient(135deg, #7C3AED 0%, #8B5CF6 50%, #A78BFA 100%)'
-        : 'var(--bg-primary)'
+        ? 'linear-gradient(135deg, #8B5CF6 0%, #A855F7 50%, #EC4899 100%)'
+        : 'var(--glass-bg)'
     };
+    backdrop-filter: ${props => props.$isSent ? 'none' : 'blur(10px)'};
+    -webkit-backdrop-filter: ${props => props.$isSent ? 'none' : 'blur(10px)'};
     box-shadow: ${props => props.$isSent
-        ? '0 2px 12px rgba(124, 58, 237, 0.35)'
-        : '0 1px 4px rgba(0, 0, 0, 0.08)'
+        ? '0 4px 20px rgba(139, 92, 246, 0.5), 0 0 40px rgba(236, 72, 153, 0.2)'
+        : '0 2px 12px rgba(0, 0, 0, 0.1)'
     };
-    border: ${props => props.$isSent ? 'none' : '1px solid var(--border-light)'};
+    border: ${props => props.$isSent ? 'none' : '1px solid var(--glass-border)'};
     opacity: ${props => props.$isPending ? 0.7 : 1};
     min-width: 60px;
     overflow: hidden;
-    transition: box-shadow 0.2s ease;
+    transition: all 0.25s ease;
 
     &:hover {
         box-shadow: ${props => props.$isSent
-        ? '0 4px 16px rgba(124, 58, 237, 0.45)'
-        : '0 2px 8px rgba(0, 0, 0, 0.12)'
+        ? '0 6px 28px rgba(139, 92, 246, 0.6), 0 0 50px rgba(236, 72, 153, 0.3)'
+        : '0 4px 16px rgba(0, 0, 0, 0.15)'
     };
+        transform: translateY(-1px);
     }
 `;
 
@@ -601,11 +607,11 @@ const BubbleTail = styled.div<{ $isSent: boolean; $hasImage?: boolean }>`
         width: 20px;
         height: 20px;
         background: ${props => props.$isSent
-        ? 'linear-gradient(135deg, #8B5CF6 0%, #A78BFA 100%)'
-        : 'var(--bg-primary)'
+        ? 'linear-gradient(135deg, #A855F7 0%, #EC4899 100%)'
+        : 'var(--glass-bg)'
     };
         border-radius: ${props => props.$isSent ? '0 0 0 15px' : '0 0 15px 0'};
-        ${props => !props.$isSent && 'border: 1px solid var(--border-light); border-top: none;'}
+        ${props => !props.$isSent && 'border: 1px solid var(--glass-border); border-top: none;'}
     }
 `;
 
@@ -748,26 +754,31 @@ const ReactionsBar = styled.div<{ $isSent: boolean }>`
 const ReactionPill = styled.button<{ $isActive?: boolean }>`
     display: flex;
     align-items: center;
-    gap: 2px;
-    padding: 3px 8px;
-    background: var(--bg-primary);
-    border: 1px solid ${props => props.$isActive ? 'var(--accent-primary)' : 'var(--border-light)'};
-    border-radius: 12px;
+    gap: 3px;
+    padding: 4px 10px;
+    background: ${props => props.$isActive
+        ? 'linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(236, 72, 153, 0.2) 100%)'
+        : 'var(--glass-bg)'};
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid ${props => props.$isActive ? 'rgba(139, 92, 246, 0.5)' : 'var(--glass-border)'};
+    border-radius: 14px;
     font-size: 0.85rem;
     cursor: pointer;
-    transition: all 0.15s ease;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(139, 92, 246, 0.15);
 
-    .emoji { font-size: 0.95rem; }
+    .emoji { font-size: 1rem; }
     .count {
         font-size: 0.7rem;
-        font-weight: 600;
-        color: var(--text-secondary);
+        font-weight: 700;
+        color: ${props => props.$isActive ? '#8B5CF6' : 'var(--text-secondary)'};
     }
 
     &:hover {
-        transform: scale(1.08);
-        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15);
+        transform: scale(1.1);
+        box-shadow: 0 4px 16px rgba(139, 92, 246, 0.25);
+        border-color: rgba(139, 92, 246, 0.5);
     }
 `;
 
@@ -775,11 +786,14 @@ const ActionsContainer = styled.div<{ $isSent: boolean }>`
     position: absolute;
     display: flex;
     gap: 2px;
-    background: var(--bg-primary);
-    border: 1px solid var(--border-light);
-    border-radius: 12px;
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
     padding: 4px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+    box-shadow: 0 8px 32px rgba(139, 92, 246, 0.25),
+                0 0 0 1px rgba(255, 255, 255, 0.1) inset;
     animation: ${fadeIn} 0.15s ease-out;
     z-index: 100;
     min-width: max-content;
@@ -787,7 +801,7 @@ const ActionsContainer = styled.div<{ $isSent: boolean }>`
     /* Positioning logic */
     ${props => props.$isSent ? `
         /* Sent messages: Show ABOVE the bubble aligned to right to avoid left-sidebar clipping */
-        top: -45px;
+        top: -50px;
         right: 0;
         margin-right: 0;
         transform: none;
@@ -801,10 +815,10 @@ const ActionsContainer = styled.div<{ $isSent: boolean }>`
 
     @media (max-width: 768px) {
         /* On mobile, always show above */
-        top: -45px;
+        top: -50px;
         transform: none;
         flex-wrap: nowrap;
-        
+
         ${props => props.$isSent
         ? 'right: 0; margin-right: 0;'
         : 'left: 0; margin-left: 0;'
@@ -816,21 +830,30 @@ const ActionBtn = styled.button<{ $isActive?: boolean; $isDelete?: boolean }>`
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
     color: ${props => {
-        if (props.$isDelete) return 'var(--text-muted)';
-        return props.$isActive ? 'var(--accent-primary)' : 'var(--text-muted)';
+        if (props.$isDelete) return 'var(--text-secondary)';
+        return props.$isActive ? '#8B5CF6' : 'var(--text-secondary)';
     }};
-    background: ${props => props.$isActive ? 'var(--purple-50)' : 'transparent'};
-    transition: all 0.15s ease;
+    background: ${props => props.$isActive ? 'rgba(139, 92, 246, 0.15)' : 'transparent'};
+    transition: all 0.2s ease;
 
-    svg { font-size: 1rem; }
+    svg {
+        font-size: 1rem;
+        transition: transform 0.2s ease;
+    }
 
     &:hover {
-        background: ${props => props.$isDelete ? 'rgba(253, 58, 85, 0.1)' : 'var(--purple-50)'};
-        color: ${props => props.$isDelete ? '#FD3A55' : 'var(--accent-primary)'};
+        background: ${props => props.$isDelete
+            ? 'rgba(253, 58, 85, 0.15)'
+            : 'rgba(139, 92, 246, 0.15)'};
+        color: ${props => props.$isDelete ? '#FD3A55' : '#8B5CF6'};
+
+        svg {
+            transform: scale(1.15);
+        }
     }
 `;
 
@@ -840,11 +863,14 @@ const ReactionPicker = styled.div<{ $isSent: boolean }>`
     ${props => props.$isSent ? 'right: 0;' : 'left: 0;'}
     display: flex;
     gap: 4px;
-    background: var(--bg-primary);
-    border: 1px solid var(--border-light);
-    border-radius: 24px;
-    padding: 8px 12px;
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    border-radius: 28px;
+    padding: 10px 14px;
+    box-shadow: 0 12px 40px rgba(139, 92, 246, 0.3),
+                0 0 0 1px rgba(255, 255, 255, 0.1) inset;
     animation: ${popIn} 0.2s ease-out;
     z-index: 20;
 `;
@@ -853,30 +879,35 @@ const ReactionBtn = styled.button<{ $isActive?: boolean }>`
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 38px;
-    height: 38px;
-    border-radius: 10px;
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
     font-size: 1.4rem;
-    background: ${props => props.$isActive ? 'var(--purple-100)' : 'transparent'};
-    transition: all 0.15s ease;
+    background: ${props => props.$isActive ? 'rgba(139, 92, 246, 0.2)' : 'transparent'};
+    transition: all 0.2s ease;
 
     &:hover {
-        background: var(--purple-50);
-        transform: scale(1.25);
+        background: rgba(139, 92, 246, 0.15);
+        transform: scale(1.3);
+    }
+
+    &:active {
+        transform: scale(1.1);
     }
 `;
 
 const ImagePreviewOverlay = styled.div`
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.95);
+    background: rgba(15, 15, 26, 0.95);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 1000;
     animation: ${fadeIn} 0.2s ease-out;
     cursor: zoom-out;
-    backdrop-filter: blur(8px);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
 `;
 
 const ImagePreviewContent = styled.div`
@@ -893,21 +924,24 @@ const ClosePreviewBtn = styled.button`
     position: absolute;
     top: -50px;
     right: 0;
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
     border-radius: var(--radius-full);
-    background: rgba(255, 255, 255, 0.1);
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.3) 0%, rgba(236, 72, 153, 0.3) 100%);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
     color: white;
     font-size: 1.8rem;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.15s ease;
+    transition: all 0.2s ease;
     line-height: 1;
 
     &:hover {
-        background: rgba(255, 255, 255, 0.2);
-        transform: scale(1.1);
+        background: linear-gradient(135deg, rgba(139, 92, 246, 0.5) 0%, rgba(236, 72, 153, 0.5) 100%);
+        transform: scale(1.1) rotate(90deg);
+        box-shadow: 0 0 20px rgba(139, 92, 246, 0.5);
     }
 `;
 
@@ -915,8 +949,9 @@ const PreviewImage = styled.img`
     max-width: 90vw;
     max-height: 80vh;
     object-fit: contain;
-    border-radius: 8px;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    border-radius: 12px;
+    box-shadow: 0 25px 80px rgba(139, 92, 246, 0.4),
+                0 0 0 1px rgba(255, 255, 255, 0.1);
 `;
 
 const PreviewInfo = styled.div`
@@ -925,10 +960,13 @@ const PreviewInfo = styled.div`
 `;
 
 const PreviewSender = styled.div`
-    color: white;
-    font-weight: 600;
+    font-weight: 700;
     font-size: 1rem;
     margin-bottom: 4px;
+    background: linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
 `;
 
 const PreviewTime = styled.div`
@@ -945,17 +983,17 @@ const QuotedReply = styled.div<{ $isSent: boolean }>`
     margin: var(--spacing-xs);
     margin-bottom: var(--spacing-sm);
     background: ${props => props.$isSent
-        ? 'rgba(255, 255, 255, 0.15)'
-        : 'var(--bg-tertiary)'
+        ? 'rgba(255, 255, 255, 0.12)'
+        : 'rgba(139, 92, 246, 0.08)'
     };
     border-radius: var(--radius-md);
     cursor: pointer;
-    transition: background 0.15s ease;
+    transition: all 0.2s ease;
 
     &:hover {
         background: ${props => props.$isSent
-        ? 'rgba(255, 255, 255, 0.2)'
-        : 'var(--bg-secondary)'
+        ? 'rgba(255, 255, 255, 0.18)'
+        : 'rgba(139, 92, 246, 0.12)'
     };
     }
 `;
@@ -964,7 +1002,7 @@ const QuotedBar = styled.div<{ $isSent: boolean }>`
     width: 3px;
     background: ${props => props.$isSent
         ? 'rgba(255, 255, 255, 0.8)'
-        : 'var(--accent-primary)'
+        : 'linear-gradient(180deg, #8B5CF6 0%, #EC4899 100%)'
     };
     border-radius: 2px;
     flex-shrink: 0;
@@ -979,10 +1017,10 @@ const QuotedContent = styled.div`
 const QuotedUser = styled.span<{ $isSent: boolean }>`
     display: block;
     font-size: 0.7rem;
-    font-weight: 600;
+    font-weight: 700;
     color: ${props => props.$isSent
         ? 'rgba(255, 255, 255, 0.9)'
-        : 'var(--accent-primary)'
+        : '#8B5CF6'
     };
     margin-bottom: 2px;
 `;
