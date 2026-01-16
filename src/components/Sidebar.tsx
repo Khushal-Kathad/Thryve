@@ -1,5 +1,5 @@
-import React, { useState, useMemo, useCallback, memo } from 'react';
-import styled, { keyframes } from 'styled-components';
+import React, { useState, useMemo, useCallback, memo, useEffect } from 'react';
+import styled, { keyframes, css } from 'styled-components';
 import AddIcon from '@mui/icons-material/Add';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
 import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder';
@@ -11,6 +11,8 @@ import GroupsIcon from '@mui/icons-material/Groups';
 import ChatIcon from '@mui/icons-material/Chat';
 import SearchIcon from '@mui/icons-material/Search';
 import PersonIcon from '@mui/icons-material/Person';
+import KeyboardDoubleArrowLeftIcon from '@mui/icons-material/KeyboardDoubleArrowLeft';
+import KeyboardDoubleArrowRightIcon from '@mui/icons-material/KeyboardDoubleArrowRight';
 import SidebarOption from './SidebarOption';
 import CreateChannelModal from './ui/CreateChannelModal';
 import ChannelPasswordModal from './ui/ChannelPasswordModal';
@@ -67,6 +69,19 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => {
     const [isCreating, setIsCreating] = useState(false);
     const [isVerifying, setIsVerifying] = useState(false);
     const [passwordError, setPasswordError] = useState('');
+    const [isCollapsed, setIsCollapsed] = useState(() => {
+        const saved = localStorage.getItem('sidebarCollapsed');
+        return saved === 'true';
+    });
+
+    // Save collapsed state to localStorage
+    useEffect(() => {
+        localStorage.setItem('sidebarCollapsed', String(isCollapsed));
+    }, [isCollapsed]);
+
+    const toggleCollapsed = useCallback(() => {
+        setIsCollapsed(prev => !prev);
+    }, []);
 
     // Selectors
     const showCreateModal = useSelector(selectShowCreateChannelModal);
@@ -229,179 +244,214 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => {
         <>
             <Overlay $isOpen={isOpen} onClick={onClose} />
 
-            <SidebarContainer $isOpen={isOpen}>
+            <SidebarContainer $isOpen={isOpen} $isCollapsed={isCollapsed}>
                 <MobileCloseButton onClick={onClose} aria-label="Close sidebar">
                     <CloseIcon />
                 </MobileCloseButton>
 
+                {/* Collapse Toggle Button - Desktop Only */}
+                <CollapseToggle onClick={toggleCollapsed} $isCollapsed={isCollapsed} title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
+                    {isCollapsed ? <KeyboardDoubleArrowRightIcon /> : <KeyboardDoubleArrowLeftIcon />}
+                </CollapseToggle>
+
                 {/* Header */}
-                <SidebarHeader>
+                <SidebarHeader $isCollapsed={isCollapsed}>
                     <WorkspaceInfo>
                         <LogoContainer>
                             <ChatBubbleOutlineIcon />
                         </LogoContainer>
-                        <WorkspaceDetails>
-                            <WorkspaceName>Thryve</WorkspaceName>
-                            <WorkspaceStatus>
-                                <StatusDot />
-                                <span>{user?.displayName?.split(' ')[0] || user?.email?.split('@')[0] || 'You'}</span>
-                            </WorkspaceStatus>
-                        </WorkspaceDetails>
+                        {!isCollapsed && (
+                            <WorkspaceDetails>
+                                <WorkspaceName>Thryve</WorkspaceName>
+                                <WorkspaceStatus>
+                                    <StatusDot />
+                                    <span>{user?.displayName?.split(' ')[0] || user?.email?.split('@')[0] || 'You'}</span>
+                                </WorkspaceStatus>
+                            </WorkspaceDetails>
+                        )}
                     </WorkspaceInfo>
-                    <NewMessageButton title="New Message" onClick={handleNewMessage}>
-                        <AddIcon />
-                    </NewMessageButton>
+                    {!isCollapsed && (
+                        <NewMessageButton title="New Message" onClick={handleNewMessage}>
+                            <AddIcon />
+                        </NewMessageButton>
+                    )}
                 </SidebarHeader>
 
-                <SidebarContent>
-                    {/* Search */}
-                    <SearchContainer>
-                        <SearchIcon />
-                        <SearchInput
-                            type="text"
-                            placeholder="Search chats & groups..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                        />
-                        {searchQuery && (
-                            <ClearSearchButton onClick={() => setSearchQuery('')}>
-                                <CloseIcon />
-                            </ClearSearchButton>
-                        )}
-                    </SearchContainer>
-
-                    {/* Chats Section */}
-                    <Section>
-                        <SectionHeader onClick={toggleChats}>
-                            <SectionHeaderLeft>
-                                <ExpandIcon $isExpanded={showChats}>
-                                    <ExpandMoreIcon />
-                                </ExpandIcon>
-                                <SectionIcon>
-                                    <ChatIcon />
-                                </SectionIcon>
-                                <span>Chats</span>
-                            </SectionHeaderLeft>
-                            <SectionBadge>{dmChannels.length}</SectionBadge>
-                        </SectionHeader>
-
-                        <SectionContent $isExpanded={showChats}>
-                            <AddButton onClick={handleNewMessage}>
-                                <AddIcon />
-                                <span>New Chat</span>
-                            </AddButton>
-
-                            {channelsLoading ? (
-                                <>
-                                    <ChannelSkeleton />
-                                    <ChannelSkeleton />
-                                </>
-                            ) : filteredDMs.length > 0 ? (
-                                filteredDMs.map((docItem) => {
-                                    const userInfo = getDMUserInfo(docItem.data());
-                                    return (
-                                        <ChatItem
-                                            key={docItem.id}
-                                            onClick={() => {
-                                                dispatch(enterRoom({ roomId: docItem.id }));
-                                                onClose?.();
-                                            }}
-                                        >
-                                            {userInfo.photo ? (
-                                                <ChatAvatarImg src={userInfo.photo} alt={userInfo.name} />
-                                            ) : (
-                                                <ChatAvatar>
-                                                    {getInitials(userInfo.name)}
-                                                </ChatAvatar>
-                                            )}
-                                            <ChatInfo>
-                                                <ChatName>{userInfo.name}</ChatName>
-                                                <ChatPreview>Tap to continue conversation</ChatPreview>
-                                            </ChatInfo>
-                                        </ChatItem>
-                                    );
-                                })
-                            ) : (
-                                <EmptyState>
-                                    <ChatIcon />
-                                    <span>No chats yet. Start a new conversation!</span>
-                                </EmptyState>
+                <SidebarContent $isCollapsed={isCollapsed}>
+                    {/* Search - Hide when collapsed */}
+                    {!isCollapsed && (
+                        <SearchContainer>
+                            <SearchIcon />
+                            <SearchInput
+                                type="text"
+                                placeholder="Search chats & groups..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                            />
+                            {searchQuery && (
+                                <ClearSearchButton onClick={() => setSearchQuery('')}>
+                                    <CloseIcon />
+                                </ClearSearchButton>
                             )}
-                        </SectionContent>
-                    </Section>
+                        </SearchContainer>
+                    )}
 
-                    <Divider />
+                    {/* Collapsed View - Icon buttons only */}
+                    {isCollapsed ? (
+                        <CollapsedMenu>
+                            <CollapsedMenuItem onClick={handleNewMessage} title="New Chat">
+                                <ChatIcon />
+                            </CollapsedMenuItem>
+                            <CollapsedMenuItem onClick={() => dispatch(setShowCreateChannelModal(true))} title="Create Group">
+                                <GroupsIcon />
+                            </CollapsedMenuItem>
+                            <CollapsedDivider />
+                            <CollapsedMenuItem onClick={() => handleMenuClick('saved')} title="Saved">
+                                <BookmarkBorderIcon />
+                            </CollapsedMenuItem>
+                            <CollapsedMenuItem onClick={() => handleMenuClick('people')} title="People">
+                                <PeopleOutlineIcon />
+                            </CollapsedMenuItem>
+                            <CollapsedMenuItem onClick={() => handleMenuClick('settings')} title="Settings">
+                                <SettingsIcon />
+                            </CollapsedMenuItem>
+                        </CollapsedMenu>
+                    ) : (
+                        <>
+                            {/* Chats Section */}
+                            <Section>
+                                <SectionHeader onClick={toggleChats}>
+                                    <SectionHeaderLeft>
+                                        <ExpandIcon $isExpanded={showChats}>
+                                            <ExpandMoreIcon />
+                                        </ExpandIcon>
+                                        <SectionIcon>
+                                            <ChatIcon />
+                                        </SectionIcon>
+                                        <span>Chats</span>
+                                    </SectionHeaderLeft>
+                                    <SectionBadge>{dmChannels.length}</SectionBadge>
+                                </SectionHeader>
 
-                    {/* Groups Section */}
-                    <Section>
-                        <SectionHeader onClick={toggleGroups}>
-                            <SectionHeaderLeft>
-                                <ExpandIcon $isExpanded={showGroups}>
-                                    <ExpandMoreIcon />
-                                </ExpandIcon>
-                                <SectionIcon>
-                                    <GroupsIcon />
-                                </SectionIcon>
-                                <span>Groups</span>
-                            </SectionHeaderLeft>
-                            <SectionBadge>{groupChannels.length}</SectionBadge>
-                        </SectionHeader>
+                                <SectionContent $isExpanded={showChats}>
+                                    <AddButton onClick={handleNewMessage}>
+                                        <AddIcon />
+                                        <span>New Chat</span>
+                                    </AddButton>
 
-                        <SectionContent $isExpanded={showGroups}>
-                            <AddButton onClick={() => dispatch(setShowCreateChannelModal(true))}>
-                                <AddIcon />
-                                <span>Create New Group</span>
-                            </AddButton>
+                                    {channelsLoading ? (
+                                        <>
+                                            <ChannelSkeleton />
+                                            <ChannelSkeleton />
+                                        </>
+                                    ) : filteredDMs.length > 0 ? (
+                                        filteredDMs.map((docItem) => {
+                                            const userInfo = getDMUserInfo(docItem.data());
+                                            return (
+                                                <ChatItem
+                                                    key={docItem.id}
+                                                    onClick={() => {
+                                                        dispatch(enterRoom({ roomId: docItem.id }));
+                                                        onClose?.();
+                                                    }}
+                                                >
+                                                    {userInfo.photo ? (
+                                                        <ChatAvatarImg src={userInfo.photo} alt={userInfo.name} />
+                                                    ) : (
+                                                        <ChatAvatar>
+                                                            {getInitials(userInfo.name)}
+                                                        </ChatAvatar>
+                                                    )}
+                                                    <ChatInfo>
+                                                        <ChatName>{userInfo.name}</ChatName>
+                                                        <ChatPreview>Tap to continue conversation</ChatPreview>
+                                                    </ChatInfo>
+                                                </ChatItem>
+                                            );
+                                        })
+                                    ) : (
+                                        <EmptyState>
+                                            <ChatIcon />
+                                            <span>No chats yet. Start a new conversation!</span>
+                                        </EmptyState>
+                                    )}
+                                </SectionContent>
+                            </Section>
 
-                            {channelsLoading ? (
-                                <>
-                                    <ChannelSkeleton />
-                                    <ChannelSkeleton />
-                                </>
-                            ) : filteredGroups.length > 0 ? (
-                                filteredGroups.map((docItem) => (
-                                    <SidebarOption
-                                        key={docItem.id}
-                                        id={docItem.id}
-                                        title={docItem.data().name}
-                                        hasPassword={!!docItem.data().passwordHash}
-                                        isPrivate={docItem.data().isPrivate}
-                                        createdBy={docItem.data().createdBy}
-                                        currentUserId={user?.uid}
-                                        members={docItem.data().members || []}
-                                    />
-                                ))
-                            ) : (
-                                <EmptyState>
-                                    <GroupsIcon />
-                                    <span>No groups yet. Create one!</span>
-                                </EmptyState>
-                            )}
-                        </SectionContent>
-                    </Section>
+                            <Divider />
 
-                    <Divider />
+                            {/* Groups Section */}
+                            <Section>
+                                <SectionHeader onClick={toggleGroups}>
+                                    <SectionHeaderLeft>
+                                        <ExpandIcon $isExpanded={showGroups}>
+                                            <ExpandMoreIcon />
+                                        </ExpandIcon>
+                                        <SectionIcon>
+                                            <GroupsIcon />
+                                        </SectionIcon>
+                                        <span>Groups</span>
+                                    </SectionHeaderLeft>
+                                    <SectionBadge>{groupChannels.length}</SectionBadge>
+                                </SectionHeader>
 
-                    {/* Quick Menu */}
-                    <QuickMenu>
-                        <QuickMenuItem onClick={() => handleMenuClick('saved')}>
-                            <QuickMenuIcon><BookmarkBorderIcon /></QuickMenuIcon>
-                            <span>Saved</span>
-                        </QuickMenuItem>
-                        <QuickMenuItem onClick={() => handleMenuClick('people')}>
-                            <QuickMenuIcon><PeopleOutlineIcon /></QuickMenuIcon>
-                            <span>People</span>
-                        </QuickMenuItem>
-                        <QuickMenuItem onClick={() => handleMenuClick('settings')}>
-                            <QuickMenuIcon><SettingsIcon /></QuickMenuIcon>
-                            <span>Settings</span>
-                        </QuickMenuItem>
-                    </QuickMenu>
+                                <SectionContent $isExpanded={showGroups}>
+                                    <AddButton onClick={() => dispatch(setShowCreateChannelModal(true))}>
+                                        <AddIcon />
+                                        <span>Create New Group</span>
+                                    </AddButton>
+
+                                    {channelsLoading ? (
+                                        <>
+                                            <ChannelSkeleton />
+                                            <ChannelSkeleton />
+                                        </>
+                                    ) : filteredGroups.length > 0 ? (
+                                        filteredGroups.map((docItem) => (
+                                            <SidebarOption
+                                                key={docItem.id}
+                                                id={docItem.id}
+                                                title={docItem.data().name}
+                                                hasPassword={!!docItem.data().passwordHash}
+                                                isPrivate={docItem.data().isPrivate}
+                                                createdBy={docItem.data().createdBy}
+                                                currentUserId={user?.uid}
+                                                members={docItem.data().members || []}
+                                            />
+                                        ))
+                                    ) : (
+                                        <EmptyState>
+                                            <GroupsIcon />
+                                            <span>No groups yet. Create one!</span>
+                                        </EmptyState>
+                                    )}
+                                </SectionContent>
+                            </Section>
+
+                            <Divider />
+
+                            {/* Quick Menu */}
+                            <QuickMenu>
+                                <QuickMenuItem onClick={() => handleMenuClick('saved')}>
+                                    <QuickMenuIcon><BookmarkBorderIcon /></QuickMenuIcon>
+                                    <span>Saved</span>
+                                </QuickMenuItem>
+                                <QuickMenuItem onClick={() => handleMenuClick('people')}>
+                                    <QuickMenuIcon><PeopleOutlineIcon /></QuickMenuIcon>
+                                    <span>People</span>
+                                </QuickMenuItem>
+                                <QuickMenuItem onClick={() => handleMenuClick('settings')}>
+                                    <QuickMenuIcon><SettingsIcon /></QuickMenuIcon>
+                                    <span>Settings</span>
+                                </QuickMenuItem>
+                            </QuickMenu>
+                        </>
+                    )}
                 </SidebarContent>
 
                 {/* Footer */}
-                <SidebarFooter>
-                    <FooterText>Made with 💞</FooterText>
+                <SidebarFooter $isCollapsed={isCollapsed}>
+                    <FooterText>{isCollapsed ? '💞' : 'Made with 💞'}</FooterText>
                 </SidebarFooter>
             </SidebarContainer>
 
@@ -460,35 +510,36 @@ const Overlay = styled.div<{ $isOpen: boolean }>`
         display: block;
         position: fixed;
         inset: 0;
-        background: rgba(0, 0, 0, 0.6);
-        backdrop-filter: blur(8px);
-        -webkit-backdrop-filter: blur(8px);
+        background: rgba(15, 15, 26, 0.8);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
         z-index: 998;
         opacity: ${({ $isOpen }) => ($isOpen ? 1 : 0)};
         visibility: ${({ $isOpen }) => ($isOpen ? 'visible' : 'hidden')};
-        transition: opacity 0.25s ease-out, visibility 0.25s ease-out;
-        /* GPU acceleration */
+        transition: opacity 0.3s ease-out, visibility 0.3s ease-out;
         transform: translateZ(0);
         will-change: opacity;
-        /* Prevent scroll on overlay */
         touch-action: none;
     }
 `;
 
-const SidebarContainer = styled.aside<{ $isOpen: boolean }>`
+const SidebarContainer = styled.aside<{ $isOpen: boolean; $isCollapsed: boolean }>`
     display: flex;
     flex-direction: column;
-    width: var(--sidebar-width);
-    min-width: var(--sidebar-width);
+    width: ${({ $isCollapsed }) => $isCollapsed ? '72px' : 'var(--sidebar-width)'};
+    min-width: ${({ $isCollapsed }) => $isCollapsed ? '72px' : 'var(--sidebar-width)'};
     height: calc(100vh - var(--header-height));
     height: calc(100dvh - var(--header-height));
     margin-top: var(--header-height);
-    background: linear-gradient(180deg, #FAFBFC 0%, #F0F2F5 100%);
-    border-right: none;
-    box-shadow: 4px 0 24px rgba(99, 56, 246, 0.06);
+    background: var(--glass-bg-strong);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-right: 1px solid var(--glass-border);
+    box-shadow: 4px 0 30px rgba(139, 92, 246, 0.1);
     position: relative;
     z-index: 10;
     overflow: hidden;
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
     @media (max-width: 768px) {
         position: fixed;
@@ -497,12 +548,13 @@ const SidebarContainer = styled.aside<{ $isOpen: boolean }>`
         bottom: 0;
         width: 85%;
         max-width: 340px;
+        min-width: auto;
         height: 100vh;
         height: 100dvh;
         height: -webkit-fill-available;
         margin-top: 0;
         z-index: 999;
-        box-shadow: ${({ $isOpen }) => ($isOpen ? '8px 0 40px rgba(0, 0, 0, 0.25)' : 'none')};
+        box-shadow: ${({ $isOpen }) => ($isOpen ? '8px 0 50px rgba(139, 92, 246, 0.3)' : 'none')};
         transform: ${({ $isOpen }) => ($isOpen ? 'translate3d(0, 0, 0)' : 'translate3d(-100%, 0, 0)')};
         transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
         will-change: transform;
@@ -525,31 +577,153 @@ const MobileCloseButton = styled.button`
         width: 40px;
         height: 40px;
         border-radius: var(--radius-full);
-        background: var(--bg-tertiary);
+        background: var(--glass-bg);
+        backdrop-filter: blur(10px);
         color: var(--text-secondary);
+        border: 1px solid var(--glass-border);
         z-index: 10;
         transition: all var(--transition-fast);
 
         &:hover {
-            background: var(--accent-danger);
+            background: linear-gradient(135deg, #F43F5E 0%, #EC4899 100%);
             color: white;
             transform: rotate(90deg);
+            border-color: transparent;
+            box-shadow: 0 0 20px rgba(244, 63, 94, 0.4);
         }
 
         svg { font-size: 1.3rem; }
     }
 `;
 
-const SidebarHeader = styled.div`
+const CollapseToggle = styled.button<{ $isCollapsed: boolean }>`
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 12px 14px;
-    background: linear-gradient(135deg, #6338F6 0%, #855CFF 100%);
+    justify-content: center;
+    position: absolute;
+    top: 50%;
+    right: -14px;
+    transform: translateY(-50%);
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-full);
+    background: linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%);
+    color: white;
+    border: 2px solid var(--bg-primary);
+    z-index: 20;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);
+
+    svg {
+        font-size: 1rem;
+        transition: transform 0.3s ease;
+    }
+
+    &:hover {
+        transform: translateY(-50%) scale(1.1);
+        box-shadow: 0 6px 20px rgba(139, 92, 246, 0.5);
+    }
+
+    &:active {
+        transform: translateY(-50%) scale(0.95);
+    }
+
+    @media (max-width: 768px) {
+        display: none;
+    }
+`;
+
+const CollapsedMenu = styled.div`
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 6px;
+`;
+
+const CollapsedMenuItem = styled.button`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius-lg);
+    background: var(--glass-bg);
+    backdrop-filter: blur(10px);
+    color: var(--text-secondary);
+    border: 1px solid var(--glass-border);
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+
+    &::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(236, 72, 153, 0.2) 100%);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+
+    svg {
+        font-size: 1.3rem;
+        position: relative;
+        z-index: 1;
+        transition: all 0.3s ease;
+    }
+
+    &:hover {
+        border-color: var(--accent-primary);
+        box-shadow: 0 8px 24px rgba(139, 92, 246, 0.3);
+        transform: scale(1.05);
+
+        &::before {
+            opacity: 1;
+        }
+
+        svg {
+            color: var(--accent-primary);
+        }
+    }
+
+    &:active {
+        transform: scale(0.95);
+    }
+`;
+
+const CollapsedDivider = styled.div`
+    width: 32px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border-light), transparent);
+    margin: 4px 0;
+`;
+
+const SidebarHeader = styled.div<{ $isCollapsed?: boolean }>`
+    display: flex;
+    align-items: center;
+    justify-content: ${({ $isCollapsed }) => $isCollapsed ? 'center' : 'space-between'};
+    padding: ${({ $isCollapsed }) => $isCollapsed ? '14px 8px' : '14px 16px'};
+    background: linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%);
     border-bottom: none;
-    margin: 8px;
-    border-radius: 12px;
-    box-shadow: 0 4px 16px rgba(99, 56, 246, 0.3);
+    margin: ${({ $isCollapsed }) => $isCollapsed ? '10px 6px' : '10px'};
+    border-radius: var(--radius-xl);
+    box-shadow: 0 8px 32px rgba(139, 92, 246, 0.4);
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+
+    &::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+        animation: ${shimmer} 3s linear infinite;
+    }
 `;
 
 const WorkspaceInfo = styled.div`
@@ -628,11 +802,11 @@ const NewMessageButton = styled.button`
     &:active { transform: scale(0.95); }
 `;
 
-const SidebarContent = styled.div`
+const SidebarContent = styled.div<{ $isCollapsed?: boolean }>`
     flex: 1;
     overflow-y: auto;
     overflow-x: hidden;
-    padding: 4px 0;
+    padding: ${({ $isCollapsed }) => $isCollapsed ? '4px 0' : '4px 0'};
     /* Smooth momentum scrolling */
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-y: contain;
@@ -665,22 +839,24 @@ const SidebarContent = styled.div`
 const SearchContainer = styled.div`
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin: 4px 8px 8px;
-    padding: 8px 12px;
-    background: white;
-    border-radius: 10px;
-    border: 1px solid #E8E8E9;
-    transition: all 0.2s ease;
+    gap: 10px;
+    margin: 6px 10px 10px;
+    padding: 10px 14px;
+    background: var(--glass-bg);
+    backdrop-filter: blur(10px);
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--glass-border);
+    transition: all 0.3s ease;
 
     &:focus-within {
-        border-color: #6338F6;
-        box-shadow: 0 0 0 2px rgba(99, 56, 246, 0.1);
+        border-color: var(--accent-primary);
+        box-shadow: 0 0 20px rgba(139, 92, 246, 0.3);
+        background: var(--glass-bg-strong);
     }
 
     svg {
-        font-size: 1rem;
-        color: #9CA3AF;
+        font-size: 1.1rem;
+        color: var(--accent-primary);
     }
 `;
 
@@ -827,20 +1003,35 @@ const AddButton = styled.button`
 const ChatItem = styled.div`
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 8px 10px;
-    margin: 2px 0;
-    border-radius: 10px;
+    gap: 12px;
+    padding: 10px 12px;
+    margin: 4px 0;
+    border-radius: var(--radius-xl);
     cursor: pointer;
-    transition: all 0.2s ease;
-    background: white;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-    border: 1px solid transparent;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    background: var(--glass-bg);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border);
+    position: relative;
+    overflow: hidden;
+
+    &::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(236, 72, 153, 0.1) 100%);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
 
     &:hover {
-        background: linear-gradient(135deg, #FAFBFC 0%, #F0EBFF 100%);
-        transform: translateX(4px);
-        border-color: #6338F6;
+        transform: translateX(6px) scale(1.02);
+        border-color: var(--accent-primary);
+        box-shadow: 0 8px 32px rgba(139, 92, 246, 0.25);
+
+        &::before {
+            opacity: 1;
+        }
     }
 
     &:active {
@@ -849,51 +1040,63 @@ const ChatItem = styled.div`
 `;
 
 const ChatAvatar = styled.div`
-    width: 36px;
-    height: 36px;
+    width: 42px;
+    height: 42px;
     border-radius: var(--radius-full);
-    background: linear-gradient(135deg, #6338F6 0%, #855CFF 100%);
+    background: linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%);
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    font-size: 0.75rem;
+    font-size: 0.85rem;
     font-weight: 700;
     color: white;
     text-transform: uppercase;
+    box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);
+    position: relative;
+    z-index: 1;
 `;
 
 const ChatAvatarImg = styled.img`
-    width: 36px;
-    height: 36px;
+    width: 42px;
+    height: 42px;
     border-radius: var(--radius-full);
     object-fit: cover;
     flex-shrink: 0;
-    border: 2px solid #F0EBFF;
+    border: 2px solid rgba(139, 92, 246, 0.3);
+    box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);
+    position: relative;
+    z-index: 1;
 `;
 
 const ChatInfo = styled.div`
     flex: 1;
     min-width: 0;
+    position: relative;
+    z-index: 1;
 `;
 
 const ChatName = styled.div`
-    font-size: 0.85rem;
+    font-size: 0.9rem;
     font-weight: 600;
-    color: #6338F6;
+    background: linear-gradient(135deg, #A78BFA 0%, #F472B6 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    line-height: 1.2;
+    line-height: 1.3;
 `;
 
 const ChatPreview = styled.div`
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     color: var(--text-muted);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    line-height: 1.2;
+    line-height: 1.3;
+    margin-top: 2px;
 `;
 
 const EmptyState = styled.div`
@@ -917,9 +1120,9 @@ const EmptyState = styled.div`
 
 const QuickMenu = styled.div`
     display: flex;
-    gap: 6px;
-    padding: 0 8px;
-    margin-bottom: 4px;
+    gap: 8px;
+    padding: 0 10px;
+    margin-bottom: 8px;
 `;
 
 const QuickMenuItem = styled.button`
@@ -927,26 +1130,41 @@ const QuickMenuItem = styled.button`
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
-    padding: 8px 6px;
-    border-radius: 8px;
-    background: white;
-    color: #4B5563;
-    font-size: 0.65rem;
+    gap: 6px;
+    padding: 10px 8px;
+    border-radius: var(--radius-lg);
+    background: var(--glass-bg);
+    backdrop-filter: blur(10px);
+    color: var(--text-secondary);
+    font-size: 0.7rem;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s ease;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
-    border: 1px solid transparent;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1px solid var(--glass-border);
+    position: relative;
+    overflow: hidden;
+
+    &::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(236, 72, 153, 0.2) 100%);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
 
     &:hover {
-        background: linear-gradient(135deg, #F0EBFF 0%, #E8E0FF 100%);
-        color: #6338F6;
-        border-color: #6338F6;
+        border-color: var(--accent-primary);
+        box-shadow: 0 8px 24px rgba(139, 92, 246, 0.3);
+        transform: translateY(-2px);
+
+        &::before {
+            opacity: 1;
+        }
     }
 
     &:active {
-        transform: scale(0.98);
+        transform: scale(0.95);
     }
 `;
 
@@ -954,36 +1172,45 @@ const QuickMenuIcon = styled.span`
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 26px;
-    height: 26px;
-    border-radius: 8px;
-    background: linear-gradient(135deg, #F0EBFF 0%, #E8E0FF 100%);
-    color: #6338F6;
-    transition: all 0.2s ease;
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-md);
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(236, 72, 153, 0.2) 100%);
+    color: var(--accent-primary);
+    transition: all 0.3s ease;
+    position: relative;
+    z-index: 1;
 
-    svg { font-size: 0.95rem; }
+    svg { font-size: 1.1rem; }
 
     ${QuickMenuItem}:hover & {
-        background: linear-gradient(135deg, #6338F6 0%, #855CFF 100%);
+        background: linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%);
         color: white;
+        box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);
     }
 `;
 
-const SidebarFooter = styled.div`
-    padding: 8px;
-    border-top: 1px solid var(--border-light);
-    background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
+const SidebarFooter = styled.div<{ $isCollapsed?: boolean }>`
+    padding: ${({ $isCollapsed }) => $isCollapsed ? '12px 6px' : '12px'};
+    border-top: 1px solid var(--glass-border);
+    background: var(--glass-bg);
+    backdrop-filter: blur(10px);
     display: flex;
     justify-content: center;
+    transition: padding 0.3s ease;
 `;
 
 const FooterText = styled.span`
-    font-size: 0.75rem;
+    font-size: 0.8rem;
     font-weight: 600;
-    color: #FF4D6D;
+    background: linear-gradient(135deg, #EC4899 0%, #F43F5E 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 6px;
+    animation: pulse 2s ease-in-out infinite;
 `;
 
 // Skeleton Styles

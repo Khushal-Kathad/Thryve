@@ -1,5 +1,5 @@
-import React from 'react';
-import styled, { keyframes } from 'styled-components';
+import React, { useEffect, useState } from 'react';
+import styled, { keyframes, css } from 'styled-components';
 import CloseIcon from '@mui/icons-material/Close';
 import SettingsIcon from '@mui/icons-material/Settings';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
@@ -11,8 +11,8 @@ import VolumeOffIcon from '@mui/icons-material/VolumeOff';
 import ViewCompactIcon from '@mui/icons-material/ViewCompact';
 import ViewAgendaIcon from '@mui/icons-material/ViewAgenda';
 import ColorLensIcon from '@mui/icons-material/ColorLens';
-import SecurityIcon from '@mui/icons-material/Security';
 import InfoIcon from '@mui/icons-material/Info';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { useDispatch, useSelector } from 'react-redux';
 import { setActivePanel, updateSettings, selectSettings } from '../../features/appSlice';
 import { useToast } from '../../context/ToastContext';
@@ -22,167 +22,166 @@ const SettingsPanel: React.FC = () => {
     const settings = useSelector(selectSettings);
     const { showToast } = useToast();
 
+    // Collapsible sections state - all expanded by default
+    const [expandedSections, setExpandedSections] = useState({
+        appearance: true,
+        notifications: true,
+        about: false,
+    });
+
+    // Apply theme to document when settings change
+    useEffect(() => {
+        document.documentElement.setAttribute('data-theme', settings.theme);
+        localStorage.setItem('theme', settings.theme);
+    }, [settings.theme]);
+
     const handleClose = () => {
         dispatch(setActivePanel('none'));
     };
 
-    const toggleTheme = () => {
+    const toggleSection = (section: keyof typeof expandedSections) => {
+        setExpandedSections(prev => ({
+            ...prev,
+            [section]: !prev[section]
+        }));
+    };
+
+    const toggleTheme = (e: React.MouseEvent) => {
+        e.stopPropagation();
         const newTheme = settings.theme === 'dark' ? 'light' : 'dark';
         dispatch(updateSettings({ theme: newTheme }));
-        showToast(`Theme changed to ${newTheme} mode`, 'success');
+        showToast(`${newTheme === 'dark' ? 'Dark' : 'Light'} mode`, 'success');
     };
 
-    const toggleNotifications = () => {
+    const toggleNotifications = (e: React.MouseEvent) => {
+        e.stopPropagation();
         dispatch(updateSettings({ notifications: !settings.notifications }));
-        showToast(
-            settings.notifications ? 'Notifications disabled' : 'Notifications enabled',
-            'info'
-        );
+        showToast(settings.notifications ? 'Notifications off' : 'Notifications on', 'info');
     };
 
-    const toggleSound = () => {
+    const toggleSound = (e: React.MouseEvent) => {
+        e.stopPropagation();
         dispatch(updateSettings({ soundEnabled: !settings.soundEnabled }));
-        showToast(
-            settings.soundEnabled ? 'Sound disabled' : 'Sound enabled',
-            'info'
-        );
+        showToast(settings.soundEnabled ? 'Sound off' : 'Sound on', 'info');
     };
 
-    const toggleCompactMode = () => {
+    const toggleCompactMode = (e: React.MouseEvent) => {
+        e.stopPropagation();
         dispatch(updateSettings({ compactMode: !settings.compactMode }));
-        showToast(
-            settings.compactMode ? 'Compact mode disabled' : 'Compact mode enabled',
-            'info'
-        );
+        showToast(settings.compactMode ? 'Normal mode' : 'Compact mode', 'info');
     };
 
     return (
         <Container>
             <Header>
-                <HeaderContent>
-                    <IconWrapper>
+                <HeaderLeft>
+                    <LogoIcon>
                         <SettingsIcon />
-                    </IconWrapper>
-                    <HeaderText>
-                        <Title>Settings</Title>
-                        <Subtitle>Customize your experience</Subtitle>
-                    </HeaderText>
-                </HeaderContent>
+                    </LogoIcon>
+                    <HeaderTitle>Settings</HeaderTitle>
+                </HeaderLeft>
                 <CloseButton onClick={handleClose}>
                     <CloseIcon />
                 </CloseButton>
             </Header>
 
             <SettingsContent>
-                <SectionCard>
-                    <SectionHeader>
-                        <SectionIcon><ColorLensIcon /></SectionIcon>
-                        <SectionTitle>Appearance</SectionTitle>
+                {/* Appearance Section */}
+                <Section>
+                    <SectionHeader onClick={() => toggleSection('appearance')}>
+                        <SectionLeft>
+                            <SectionIcon><ColorLensIcon /></SectionIcon>
+                            <SectionTitle>Appearance</SectionTitle>
+                        </SectionLeft>
+                        <ChevronIcon $expanded={expandedSections.appearance}>
+                            <ExpandMoreIcon />
+                        </ChevronIcon>
                     </SectionHeader>
 
-                    <SettingItem onClick={toggleTheme}>
-                        <SettingLeft>
-                            <SettingIconBox $active={settings.theme === 'dark'}>
-                                {settings.theme === 'dark' ? <DarkModeIcon /> : <LightModeIcon />}
-                            </SettingIconBox>
-                            <SettingInfo>
-                                <SettingName>Theme</SettingName>
-                                <SettingDescription>
-                                    {settings.theme === 'dark' ? 'Dark mode enabled' : 'Light mode enabled'}
-                                </SettingDescription>
-                            </SettingInfo>
-                        </SettingLeft>
-                        <Toggle $active={settings.theme === 'dark'}>
-                            <ToggleKnob $active={settings.theme === 'dark'} />
-                        </Toggle>
-                    </SettingItem>
+                    <SectionContent $expanded={expandedSections.appearance}>
+                        <SettingsGrid>
+                            <SettingCard onClick={toggleTheme}>
+                                <SettingIconBox $active={settings.theme === 'dark'}>
+                                    {settings.theme === 'dark' ? <DarkModeIcon /> : <LightModeIcon />}
+                                </SettingIconBox>
+                                <SettingLabel>
+                                    {settings.theme === 'dark' ? 'Dark' : 'Light'}
+                                </SettingLabel>
+                                <MiniToggle $active={settings.theme === 'dark'} />
+                            </SettingCard>
 
-                    <SettingItem onClick={toggleCompactMode}>
-                        <SettingLeft>
-                            <SettingIconBox $active={settings.compactMode}>
-                                {settings.compactMode ? <ViewCompactIcon /> : <ViewAgendaIcon />}
-                            </SettingIconBox>
-                            <SettingInfo>
-                                <SettingName>Compact Mode</SettingName>
-                                <SettingDescription>
-                                    {settings.compactMode ? 'Smaller message spacing' : 'Normal spacing'}
-                                </SettingDescription>
-                            </SettingInfo>
-                        </SettingLeft>
-                        <Toggle $active={settings.compactMode}>
-                            <ToggleKnob $active={settings.compactMode} />
-                        </Toggle>
-                    </SettingItem>
-                </SectionCard>
+                            <SettingCard onClick={toggleCompactMode}>
+                                <SettingIconBox $active={settings.compactMode}>
+                                    {settings.compactMode ? <ViewCompactIcon /> : <ViewAgendaIcon />}
+                                </SettingIconBox>
+                                <SettingLabel>Compact</SettingLabel>
+                                <MiniToggle $active={settings.compactMode} />
+                            </SettingCard>
+                        </SettingsGrid>
+                    </SectionContent>
+                </Section>
 
-                <SectionCard>
-                    <SectionHeader>
-                        <SectionIcon><NotificationsIcon /></SectionIcon>
-                        <SectionTitle>Notifications</SectionTitle>
+                {/* Notifications Section */}
+                <Section>
+                    <SectionHeader onClick={() => toggleSection('notifications')}>
+                        <SectionLeft>
+                            <SectionIcon><NotificationsIcon /></SectionIcon>
+                            <SectionTitle>Notifications</SectionTitle>
+                        </SectionLeft>
+                        <ChevronIcon $expanded={expandedSections.notifications}>
+                            <ExpandMoreIcon />
+                        </ChevronIcon>
                     </SectionHeader>
 
-                    <SettingItem onClick={toggleNotifications}>
-                        <SettingLeft>
-                            <SettingIconBox $active={settings.notifications}>
-                                {settings.notifications ? <NotificationsIcon /> : <NotificationsOffIcon />}
-                            </SettingIconBox>
-                            <SettingInfo>
-                                <SettingName>Push Notifications</SettingName>
-                                <SettingDescription>
-                                    {settings.notifications ? 'Get notified of new messages' : 'Notifications are off'}
-                                </SettingDescription>
-                            </SettingInfo>
-                        </SettingLeft>
-                        <Toggle $active={settings.notifications}>
-                            <ToggleKnob $active={settings.notifications} />
-                        </Toggle>
-                    </SettingItem>
+                    <SectionContent $expanded={expandedSections.notifications}>
+                        <SettingsGrid>
+                            <SettingCard onClick={toggleNotifications}>
+                                <SettingIconBox $active={settings.notifications}>
+                                    {settings.notifications ? <NotificationsIcon /> : <NotificationsOffIcon />}
+                                </SettingIconBox>
+                                <SettingLabel>Push</SettingLabel>
+                                <MiniToggle $active={settings.notifications} />
+                            </SettingCard>
 
-                    <SettingItem onClick={toggleSound}>
-                        <SettingLeft>
-                            <SettingIconBox $active={settings.soundEnabled}>
-                                {settings.soundEnabled ? <VolumeUpIcon /> : <VolumeOffIcon />}
-                            </SettingIconBox>
-                            <SettingInfo>
-                                <SettingName>Sound Effects</SettingName>
-                                <SettingDescription>
-                                    {settings.soundEnabled ? 'Play sounds for messages' : 'Sounds are muted'}
-                                </SettingDescription>
-                            </SettingInfo>
-                        </SettingLeft>
-                        <Toggle $active={settings.soundEnabled}>
-                            <ToggleKnob $active={settings.soundEnabled} />
-                        </Toggle>
-                    </SettingItem>
-                </SectionCard>
+                            <SettingCard onClick={toggleSound}>
+                                <SettingIconBox $active={settings.soundEnabled}>
+                                    {settings.soundEnabled ? <VolumeUpIcon /> : <VolumeOffIcon />}
+                                </SettingIconBox>
+                                <SettingLabel>Sound</SettingLabel>
+                                <MiniToggle $active={settings.soundEnabled} />
+                            </SettingCard>
+                        </SettingsGrid>
+                    </SectionContent>
+                </Section>
 
-                <SectionCard>
-                    <SectionHeader>
-                        <SectionIcon><InfoIcon /></SectionIcon>
-                        <SectionTitle>About</SectionTitle>
+                {/* About Section */}
+                <Section>
+                    <SectionHeader onClick={() => toggleSection('about')}>
+                        <SectionLeft>
+                            <SectionIcon><InfoIcon /></SectionIcon>
+                            <SectionTitle>About</SectionTitle>
+                        </SectionLeft>
+                        <ChevronIcon $expanded={expandedSections.about}>
+                            <ExpandMoreIcon />
+                        </ChevronIcon>
                     </SectionHeader>
 
-                    <AboutCard>
-                        <AppLogo>
-                            <LogoGradient>TC</LogoGradient>
-                        </AppLogo>
-                        <AppInfo>
-                            <AppName>Thryve Chat</AppName>
-                            <AppVersion>Version 1.0.0</AppVersion>
-                        </AppInfo>
-                    </AboutCard>
-
-                    <AboutDescription>
-                        A modern real-time chat application with audio/video calling capabilities.
-                    </AboutDescription>
-
-                    <TechStack>
-                        <TechBadge $variant="react">React</TechBadge>
-                        <TechBadge $variant="typescript">TypeScript</TechBadge>
-                        <TechBadge $variant="firebase">Firebase</TechBadge>
-                        <TechBadge $variant="agora">Agora</TechBadge>
-                    </TechStack>
-                </SectionCard>
+                    <SectionContent $expanded={expandedSections.about}>
+                        <AboutRow>
+                            <AppLogo>TC</AppLogo>
+                            <AppInfo>
+                                <AppName>Thryve Chat</AppName>
+                                <AppVersion>v1.0.0</AppVersion>
+                            </AppInfo>
+                        </AboutRow>
+                        <TechStack>
+                            <TechBadge $color="#61DAFB">React</TechBadge>
+                            <TechBadge $color="#3178C6">TS</TechBadge>
+                            <TechBadge $color="#FFCA28">Firebase</TechBadge>
+                            <TechBadge $color="#099DFD">Agora</TechBadge>
+                        </TechStack>
+                    </SectionContent>
+                </Section>
             </SettingsContent>
         </Container>
     );
@@ -190,76 +189,85 @@ const SettingsPanel: React.FC = () => {
 
 export default SettingsPanel;
 
+// Animations
 const fadeIn = keyframes`
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
 `;
 
+const gradientShift = keyframes`
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+`;
+
+// Styled Components
 const Container = styled.div`
     flex: 1;
     display: flex;
     flex-direction: column;
     height: calc(100vh - var(--header-height));
     margin-top: var(--header-height);
-    background: linear-gradient(180deg, #FAFBFC 0%, #F0F2F5 100%);
+    background: linear-gradient(135deg, #0F0F1A 0%, #1A1A2E 100%);
+    position: relative;
+    overflow: hidden;
+
+    @media (max-width: 768px) {
+        height: calc(100vh - var(--header-height) - var(--bottom-nav-height, 70px));
+    }
 `;
 
 const Header = styled.div`
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 24px;
-    background: linear-gradient(135deg, #6338F6 0%, #855CFF 100%);
-    color: white;
+    padding: 16px 20px;
+    background: linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%);
+    background-size: 200% 200%;
+    animation: ${gradientShift} 8s ease infinite;
+    flex-shrink: 0;
 `;
 
-const HeaderContent = styled.div`
+const HeaderLeft = styled.div`
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 12px;
 `;
 
-const IconWrapper = styled.div`
-    width: 48px;
-    height: 48px;
-    border-radius: 14px;
+const LogoIcon = styled.div`
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
     background: rgba(255, 255, 255, 0.2);
-    backdrop-filter: blur(10px);
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 1px solid rgba(255, 255, 255, 0.3);
 
     svg {
-        font-size: 1.5rem;
+        font-size: 1.3rem;
         color: white;
     }
 `;
 
-const HeaderText = styled.div``;
-
-const Title = styled.h2`
-    font-size: 1.5rem;
+const HeaderTitle = styled.h2`
+    font-size: 1.3rem;
     font-weight: 700;
+    color: white;
     margin: 0;
 `;
 
-const Subtitle = styled.p`
-    font-size: 0.9rem;
-    opacity: 0.85;
-    margin: 4px 0 0 0;
-`;
-
 const CloseButton = styled.button`
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.15);
+    color: white;
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 40px;
-    height: 40px;
-    border-radius: 12px;
-    background: rgba(255, 255, 255, 0.15);
-    color: white;
     transition: all 0.2s ease;
+
+    svg { font-size: 1.2rem; }
 
     &:hover {
         background: rgba(255, 255, 255, 0.25);
@@ -269,211 +277,197 @@ const CloseButton = styled.button`
 
 const SettingsContent = styled.div`
     flex: 1;
-    overflow-y: auto;
-    padding: 20px;
+    padding: 16px;
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 12px;
+    overflow-y: auto;
 `;
 
-const SectionCard = styled.div`
-    background: white;
-    border-radius: 20px;
-    padding: 20px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
-    animation: ${fadeIn} 0.4s ease-out;
-    animation-fill-mode: backwards;
-
-    &:nth-child(1) { animation-delay: 0.1s; }
-    &:nth-child(2) { animation-delay: 0.2s; }
-    &:nth-child(3) { animation-delay: 0.3s; }
+const Section = styled.div`
+    background: rgba(30, 30, 58, 0.5);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    overflow: hidden;
+    animation: ${fadeIn} 0.3s ease-out;
 `;
 
 const SectionHeader = styled.div`
     display: flex;
     align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    cursor: pointer;
+    transition: background 0.2s ease;
+
+    &:hover {
+        background: rgba(139, 92, 246, 0.1);
+    }
+`;
+
+const SectionLeft = styled.div`
+    display: flex;
+    align-items: center;
     gap: 12px;
-    margin-bottom: 16px;
-    padding-bottom: 12px;
-    border-bottom: 2px solid #F0F2F5;
 `;
 
 const SectionIcon = styled.div`
-    width: 36px;
-    height: 36px;
-    border-radius: 10px;
-    background: linear-gradient(135deg, #F0EBFF 0%, #E8E0FF 100%);
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(236, 72, 153, 0.2) 100%);
     display: flex;
     align-items: center;
     justify-content: center;
 
     svg {
-        font-size: 1.1rem;
-        color: #6338F6;
+        font-size: 1rem;
+        color: #8B5CF6;
     }
 `;
 
 const SectionTitle = styled.h3`
-    font-size: 1rem;
-    font-weight: 700;
-    color: #141B27;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: white;
     margin: 0;
 `;
 
-const SettingItem = styled.div`
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 16px;
-    border-radius: 14px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    margin-bottom: 8px;
-    background: #FAFBFC;
-    border: 2px solid transparent;
+const ChevronIcon = styled.div<{ $expanded: boolean }>`
+    color: rgba(255, 255, 255, 0.5);
+    transition: transform 0.3s ease;
+    transform: rotate(${props => props.$expanded ? '180deg' : '0deg'});
 
-    &:last-child {
-        margin-bottom: 0;
-    }
-
-    &:hover {
-        background: linear-gradient(135deg, #F0EBFF 0%, #FAFBFC 100%);
-        border-color: #6338F6;
-        transform: translateX(4px);
-    }
+    svg { font-size: 1.3rem; }
 `;
 
-const SettingLeft = styled.div`
+const SectionContent = styled.div<{ $expanded: boolean }>`
+    max-height: ${props => props.$expanded ? '200px' : '0'};
+    opacity: ${props => props.$expanded ? 1 : 0};
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    padding: ${props => props.$expanded ? '0 16px 16px' : '0 16px'};
+`;
+
+const SettingsGrid = styled.div`
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+`;
+
+const SettingCard = styled.div`
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 14px;
+    gap: 8px;
+    padding: 14px 10px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    &:hover {
+        background: rgba(139, 92, 246, 0.1);
+        border-color: rgba(139, 92, 246, 0.3);
+        transform: translateY(-2px);
+    }
+
+    &:active {
+        transform: scale(0.98);
+    }
 `;
 
 const SettingIconBox = styled.div<{ $active: boolean }>`
-    width: 44px;
-    height: 44px;
-    border-radius: 12px;
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
     background: ${props => props.$active
-        ? 'linear-gradient(135deg, #6338F6 0%, #855CFF 100%)'
-        : 'linear-gradient(135deg, #F0EBFF 0%, #E8E0FF 100%)'
+        ? 'linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%)'
+        : 'rgba(255, 255, 255, 0.05)'
     };
     display: flex;
     align-items: center;
     justify-content: center;
     transition: all 0.2s ease;
-    box-shadow: ${props => props.$active ? '0 4px 12px rgba(99, 56, 246, 0.3)' : 'none'};
+    box-shadow: ${props => props.$active
+        ? '0 4px 15px rgba(139, 92, 246, 0.4)'
+        : 'none'};
 
     svg {
-        color: ${props => props.$active ? 'white' : '#6338F6'};
-        font-size: 1.3rem;
+        font-size: 1.2rem;
+        color: ${props => props.$active ? 'white' : 'rgba(255, 255, 255, 0.5)'};
     }
 `;
 
-const SettingInfo = styled.div``;
-
-const SettingName = styled.div`
-    font-size: 0.95rem;
-    font-weight: 600;
-    color: #141B27;
-    margin-bottom: 2px;
-`;
-
-const SettingDescription = styled.div`
+const SettingLabel = styled.span`
     font-size: 0.8rem;
-    color: #72767D;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.8);
 `;
 
-const Toggle = styled.div<{ $active: boolean }>`
-    width: 52px;
-    height: 28px;
-    border-radius: 14px;
+const MiniToggle = styled.div<{ $active: boolean }>`
+    width: 32px;
+    height: 6px;
+    border-radius: 3px;
     background: ${props => props.$active
-        ? 'linear-gradient(135deg, #6338F6 0%, #855CFF 100%)'
-        : '#E8E8E9'
+        ? 'linear-gradient(90deg, #8B5CF6 0%, #EC4899 100%)'
+        : 'rgba(255, 255, 255, 0.15)'
     };
-    padding: 3px;
     transition: all 0.2s ease;
-    box-shadow: ${props => props.$active ? '0 2px 8px rgba(99, 56, 246, 0.3)' : 'inset 0 1px 2px rgba(0,0,0,0.1)'};
+    box-shadow: ${props => props.$active
+        ? '0 0 10px rgba(139, 92, 246, 0.5)'
+        : 'none'};
 `;
 
-const ToggleKnob = styled.div<{ $active: boolean }>`
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
-    background: white;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
-    transition: all 0.2s ease;
-    transform: translateX(${props => props.$active ? '24px' : '0'});
-`;
-
-const AboutCard = styled.div`
+const AboutRow = styled.div`
     display: flex;
     align-items: center;
-    gap: 16px;
-    padding: 16px;
-    background: linear-gradient(135deg, #F0EBFF 0%, #E8E0FF 100%);
-    border-radius: 14px;
-    margin-bottom: 16px;
+    gap: 12px;
+    margin-bottom: 12px;
 `;
 
 const AppLogo = styled.div`
-    width: 56px;
-    height: 56px;
-    border-radius: 16px;
-    background: linear-gradient(135deg, #6338F6 0%, #855CFF 100%);
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%);
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 8px 24px rgba(99, 56, 246, 0.3);
-`;
-
-const LogoGradient = styled.span`
-    font-size: 1.4rem;
+    font-size: 1.1rem;
     font-weight: 800;
     color: white;
+    box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);
 `;
 
 const AppInfo = styled.div``;
 
 const AppName = styled.h4`
-    font-size: 1.2rem;
+    font-size: 1rem;
     font-weight: 700;
-    color: #141B27;
-    margin: 0;
+    color: white;
+    margin: 0 0 2px 0;
 `;
 
 const AppVersion = styled.span`
-    font-size: 0.85rem;
-    color: #6338F6;
-    font-weight: 500;
-`;
-
-const AboutDescription = styled.p`
-    font-size: 0.9rem;
-    color: #72767D;
-    line-height: 1.6;
-    margin: 0 0 16px 0;
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.5);
 `;
 
 const TechStack = styled.div`
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 6px;
 `;
 
-const TechBadge = styled.span<{ $variant: 'react' | 'typescript' | 'firebase' | 'agora' }>`
-    font-size: 0.75rem;
+const TechBadge = styled.span<{ $color: string }>`
+    font-size: 0.7rem;
     font-weight: 600;
-    padding: 6px 12px;
-    border-radius: 20px;
-    background: ${props => {
-        switch (props.$variant) {
-            case 'react': return 'linear-gradient(135deg, #61DAFB 0%, #00C4FF 100%)';
-            case 'typescript': return 'linear-gradient(135deg, #3178C6 0%, #235A97 100%)';
-            case 'firebase': return 'linear-gradient(135deg, #FFCA28 0%, #FFA000 100%)';
-            case 'agora': return 'linear-gradient(135deg, #099DFD 0%, #0066CC 100%)';
-        }
-    }};
-    color: ${props => props.$variant === 'firebase' ? '#333' : 'white'};
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    padding: 4px 10px;
+    border-radius: 12px;
+    background: ${props => props.$color}20;
+    color: ${props => props.$color};
+    border: 1px solid ${props => props.$color}40;
 `;
