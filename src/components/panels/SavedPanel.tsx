@@ -173,6 +173,11 @@ const Container = styled.div`
     height: calc(100vh - var(--header-height));
     margin-top: var(--header-height);
     background: var(--bg-chat);
+
+    @media (min-width: 1024px) {
+        height: calc(100vh - 70px);
+        margin-top: 70px;
+    }
 `;
 
 const Header = styled.div`
@@ -181,7 +186,11 @@ const Header = styled.div`
     justify-content: space-between;
     padding: var(--spacing-lg);
     border-bottom: 1px solid var(--glass-border);
-    background: var(--glass-bg);
+    background: linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%);
+
+    @media (min-width: 1024px) {
+        padding: 20px 32px;
+    }
 `;
 
 const Title = styled.h2`
@@ -190,11 +199,15 @@ const Title = styled.h2`
     gap: var(--spacing-sm);
     font-size: 1.2rem;
     font-weight: 600;
-    color: var(--text-primary);
+    color: white;
     margin: 0;
 
     svg {
-        color: var(--accent-primary);
+        color: white;
+    }
+
+    @media (min-width: 1024px) {
+        font-size: 1.4rem;
     }
 `;
 
@@ -204,12 +217,12 @@ const CloseButton = styled.button`
     justify-content: center;
     padding: var(--spacing-sm);
     border-radius: var(--radius-md);
-    color: var(--text-muted);
+    color: rgba(255, 255, 255, 0.8);
     transition: all var(--transition-fast);
 
     &:hover {
-        background: var(--glass-bg-hover);
-        color: var(--text-primary);
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
     }
 `;
 
@@ -217,6 +230,18 @@ const SavedContent = styled.div`
     flex: 1;
     overflow-y: auto;
     padding: var(--spacing-lg);
+
+    @media (min-width: 1024px) {
+        padding: 24px 32px;
+        max-width: 1000px;
+        margin: 0 auto;
+        width: 100%;
+    }
+
+    @media (min-width: 1280px) {
+        max-width: 1200px;
+        padding: 32px 40px;
+    }
 `;
 
 const SavedCount = styled.div`
@@ -235,6 +260,19 @@ const SavedItem = styled.div`
 
     &:hover {
         border-color: var(--accent-primary);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 32px rgba(139, 92, 246, 0.15);
+    }
+
+    @media (min-width: 1024px) {
+        padding: 20px;
+        border-radius: 16px;
+        margin-bottom: 16px;
+
+        &:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(139, 92, 246, 0.2);
+        }
     }
 `;
 
@@ -351,6 +389,12 @@ const EmptyState = styled.div`
     justify-content: center;
     padding: var(--spacing-xl) var(--spacing-lg);
     text-align: center;
+    min-height: 300px;
+
+    @media (min-width: 1024px) {
+        min-height: 400px;
+        padding: 60px;
+    }
 `;
 
 const EmptyIcon = styled.div`
@@ -366,6 +410,17 @@ const EmptyIcon = styled.div`
     svg {
         font-size: 2.5rem;
         color: var(--text-muted);
+    }
+
+    @media (min-width: 1024px) {
+        width: 120px;
+        height: 120px;
+        background: linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(236, 72, 153, 0.2) 100%);
+
+        svg {
+            font-size: 3.5rem;
+            color: var(--accent-primary);
+        }
     }
 `;
 

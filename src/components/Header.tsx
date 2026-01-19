@@ -295,6 +295,15 @@ const HeaderContainer = styled.header<{ $hasOfflineBanner?: boolean }>`
         padding: 0 24px;
     }
 
+    @media (min-width: 1024px) {
+        padding: 0 32px;
+        height: 70px;
+    }
+
+    @media (min-width: 1280px) {
+        padding: 0 40px;
+    }
+
     @media (max-width: 768px) and (orientation: landscape) {
         height: var(--header-height);
     }
@@ -347,6 +356,10 @@ const Logo = styled.div`
     display: flex;
     align-items: center;
     gap: var(--spacing-2);
+
+    @media (min-width: 1024px) {
+        gap: var(--spacing-3);
+    }
 `;
 
 const LogoIcon = styled.div`
@@ -362,6 +375,19 @@ const LogoIcon = styled.div`
     font-weight: 800;
     color: white;
     border: 1px solid rgba(255, 255, 255, 0.3);
+    transition: all 0.3s ease;
+
+    @media (min-width: 1024px) {
+        width: 44px;
+        height: 44px;
+        border-radius: 14px;
+        font-size: 1.3rem;
+    }
+
+    &:hover {
+        transform: scale(1.05);
+        box-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+    }
 `;
 
 const LogoText = styled.span`
@@ -369,6 +395,10 @@ const LogoText = styled.span`
     font-weight: 800;
     color: white;
     letter-spacing: -0.5px;
+
+    @media (min-width: 1024px) {
+        font-size: 1.6rem;
+    }
 
     @media (max-width: 640px) {
         display: none;
@@ -382,6 +412,15 @@ const HeaderCenter = styled.div<{ $isSearchFocused?: boolean }>`
     padding: 0 var(--spacing-4);
     max-width: 600px;
     margin: 0 auto;
+
+    @media (min-width: 1024px) {
+        max-width: 700px;
+        padding: 0 var(--spacing-6);
+    }
+
+    @media (min-width: 1280px) {
+        max-width: 800px;
+    }
 
     @media (max-width: 768px) {
         ${props => props.$isSearchFocused && css`
@@ -417,6 +456,16 @@ const SearchContainer = styled.div<{ $isFocused?: boolean }>`
 
     &:hover:not(:focus-within) {
         background: rgba(255, 255, 255, 0.2);
+    }
+
+    @media (min-width: 1024px) {
+        padding: 12px 24px;
+        gap: 12px;
+
+        ${props => props.$isFocused && css`
+            box-shadow: 0 0 30px rgba(255, 255, 255, 0.15),
+                        0 8px 32px rgba(0, 0, 0, 0.2);
+        `}
     }
 
     @media (max-width: 768px) {
@@ -503,6 +552,17 @@ const IconButton = styled.button<{ $hasNotification?: boolean }>`
 
     &:hover {
         background: rgba(255, 255, 255, 0.2);
+        transform: translateY(-2px);
+    }
+
+    @media (min-width: 1024px) {
+        width: 44px;
+        height: 44px;
+        border-radius: 14px;
+
+        svg {
+            font-size: 1.4rem;
+        }
     }
 `;
 
@@ -538,6 +598,13 @@ const UserSection = styled.button`
 
     &:hover {
         background: rgba(255, 255, 255, 0.2);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    }
+
+    @media (min-width: 1024px) {
+        padding: 8px 16px 8px 8px;
+        gap: 14px;
     }
 `;
 
@@ -545,6 +612,12 @@ const StyledAvatar = styled(Avatar)`
     width: 36px !important;
     height: 36px !important;
     border: 2px solid rgba(255, 255, 255, 0.5);
+    transition: all 0.2s ease;
+
+    @media (min-width: 1024px) {
+        width: 40px !important;
+        height: 40px !important;
+    }
 `;
 
 const UserInfo = styled.div`
@@ -553,7 +626,7 @@ const UserInfo = styled.div`
     align-items: flex-start;
     text-align: left;
 
-    @media (max-width: 1024px) {
+    @media (max-width: 1023px) {
         display: none;
     }
 `;

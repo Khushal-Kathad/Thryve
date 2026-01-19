@@ -53,65 +53,115 @@ const Login: React.FC = () => {
                 <PatternDot className="dots2" />
             </BackgroundPattern>
 
-            <LoginContent>
-                <BrandingSection>
-                    <LogoWrapper>
+            {/* Desktop Left Panel - Branding & Features */}
+            <LeftPanel>
+                <DesktopBranding>
+                    <DesktopLogoWrapper>
                         <ChatBubbleOutlineIcon />
-                    </LogoWrapper>
-                    <AppTitle>Thryve</AppTitle>
-                    <AppSubtitle>Connect. Collaborate. Create.</AppSubtitle>
-                </BrandingSection>
+                    </DesktopLogoWrapper>
+                    <DesktopTitle>Thryve</DesktopTitle>
+                    <DesktopSubtitle>
+                        Connect with your team in real-time. Collaborate seamlessly. Create together.
+                    </DesktopSubtitle>
 
-                <LoginCard>
-                    <CardHeader>
-                        <WelcomeTitle>Welcome Back</WelcomeTitle>
-                        <WelcomeSubtitle>Sign in to continue to your workspace</WelcomeSubtitle>
-                    </CardHeader>
+                    <DesktopFeatures>
+                        <DesktopFeatureItem>
+                            <DesktopFeatureIcon>
+                                <ChatBubbleOutlineIcon />
+                            </DesktopFeatureIcon>
+                            <DesktopFeatureText>
+                                <h4>Real-time Messaging</h4>
+                                <p>Instant chat with rich media support</p>
+                            </DesktopFeatureText>
+                        </DesktopFeatureItem>
 
-                    <GoogleButton onClick={signIn} disabled={isLoading}>
-                        <GoogleIconWrapper>
-                            <GoogleIcon />
-                        </GoogleIconWrapper>
-                        <ButtonText>{isLoading ? 'Signing in...' : 'Continue with Google'}</ButtonText>
-                        {isLoading && <LoadingSpinner />}
-                    </GoogleButton>
+                        <DesktopFeatureItem>
+                            <DesktopFeatureIcon>
+                                <VideocamOutlinedIcon />
+                            </DesktopFeatureIcon>
+                            <DesktopFeatureText>
+                                <h4>HD Video Calls</h4>
+                                <p>Crystal clear video and voice calls</p>
+                            </DesktopFeatureText>
+                        </DesktopFeatureItem>
 
-                    <SecurityNote>
-                        <SecurityIcon />
-                        <span>Secured with Google Authentication</span>
-                    </SecurityNote>
-                </LoginCard>
+                        <DesktopFeatureItem>
+                            <DesktopFeatureIcon>
+                                <GroupsIcon />
+                            </DesktopFeatureIcon>
+                            <DesktopFeatureText>
+                                <h4>Group Channels</h4>
+                                <p>Public and private team spaces</p>
+                            </DesktopFeatureText>
+                        </DesktopFeatureItem>
+                    </DesktopFeatures>
+                </DesktopBranding>
+            </LeftPanel>
 
-                <FeaturesGrid>
-                    <FeatureCard>
-                        <FeatureIconWrapper>
+            {/* Right Panel - Login Form */}
+            <RightPanel>
+                <LoginContent>
+                    {/* Mobile/Tablet Branding - Hidden on Desktop */}
+                    <BrandingSection>
+                        <LogoWrapper>
                             <ChatBubbleOutlineIcon />
-                        </FeatureIconWrapper>
-                        <FeatureTitle>Real-time Chat</FeatureTitle>
-                        <FeatureDescription>Instant messaging with your team</FeatureDescription>
-                    </FeatureCard>
+                        </LogoWrapper>
+                        <AppTitle>Thryve</AppTitle>
+                        <AppSubtitle>Connect. Collaborate. Create.</AppSubtitle>
+                    </BrandingSection>
 
-                    <FeatureCard>
-                        <FeatureIconWrapper>
-                            <VideocamOutlinedIcon />
-                        </FeatureIconWrapper>
-                        <FeatureTitle>Video Calls</FeatureTitle>
-                        <FeatureDescription>HD video & voice calls</FeatureDescription>
-                    </FeatureCard>
+                    <LoginCard>
+                        <CardHeader>
+                            <WelcomeTitle>Welcome Back</WelcomeTitle>
+                            <WelcomeSubtitle>Sign in to continue to your workspace</WelcomeSubtitle>
+                        </CardHeader>
 
-                    <FeatureCard>
-                        <FeatureIconWrapper>
-                            <GroupsIcon />
-                        </FeatureIconWrapper>
-                        <FeatureTitle>Group Channels</FeatureTitle>
-                        <FeatureDescription>Create public & private groups</FeatureDescription>
-                    </FeatureCard>
-                </FeaturesGrid>
-            </LoginContent>
+                        <GoogleButton onClick={signIn} disabled={isLoading}>
+                            <GoogleIconWrapper>
+                                <GoogleIcon />
+                            </GoogleIconWrapper>
+                            <ButtonText>{isLoading ? 'Signing in...' : 'Continue with Google'}</ButtonText>
+                            {isLoading && <LoadingSpinner />}
+                        </GoogleButton>
 
-            <Footer>
-                <FooterText>Built with React & Firebase</FooterText>
-            </Footer>
+                        <SecurityNote>
+                            <SecurityIcon />
+                            <span>Secured with Google Authentication</span>
+                        </SecurityNote>
+                    </LoginCard>
+
+                    {/* Mobile/Tablet Features Grid - Hidden on Desktop */}
+                    <FeaturesGrid>
+                        <FeatureCard>
+                            <FeatureIconWrapper>
+                                <ChatBubbleOutlineIcon />
+                            </FeatureIconWrapper>
+                            <FeatureTitle>Real-time Chat</FeatureTitle>
+                            <FeatureDescription>Instant messaging with your team</FeatureDescription>
+                        </FeatureCard>
+
+                        <FeatureCard>
+                            <FeatureIconWrapper>
+                                <VideocamOutlinedIcon />
+                            </FeatureIconWrapper>
+                            <FeatureTitle>Video Calls</FeatureTitle>
+                            <FeatureDescription>HD video & voice calls</FeatureDescription>
+                        </FeatureCard>
+
+                        <FeatureCard>
+                            <FeatureIconWrapper>
+                                <GroupsIcon />
+                            </FeatureIconWrapper>
+                            <FeatureTitle>Group Channels</FeatureTitle>
+                            <FeatureDescription>Create public & private groups</FeatureDescription>
+                        </FeatureCard>
+                    </FeaturesGrid>
+
+                    <Footer>
+                        <FooterText>Built with React & Firebase</FooterText>
+                    </Footer>
+                </LoginContent>
+            </RightPanel>
         </LoginContainer>
     );
 };
@@ -213,13 +263,9 @@ const twinkle = keyframes`
 const LoginContainer = styled.div`
     min-height: 100vh;
     display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
     background: linear-gradient(135deg, #0F0F1A 0%, #1A1A2E 50%, #0F0F1A 100%);
     position: relative;
     overflow: hidden;
-    padding: var(--spacing-lg);
 
     &::before {
         content: '';
@@ -235,8 +281,203 @@ const LoginContainer = styled.div`
         pointer-events: none;
     }
 
+    /* Desktop: Side-by-side layout */
+    @media (min-width: 1024px) {
+        flex-direction: row;
+    }
+
+    /* Mobile/Tablet: Centered stack */
+    @media (max-width: 1023px) {
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: var(--spacing-lg);
+    }
+
     @media (max-width: 480px) {
         padding: var(--spacing-md);
+    }
+`;
+
+const LeftPanel = styled.div`
+    display: none;
+
+    @media (min-width: 1024px) {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        width: 50%;
+        min-height: 100vh;
+        padding: 60px;
+        background: linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(236, 72, 153, 0.1) 100%);
+        position: relative;
+        overflow: hidden;
+
+        &::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(139, 92, 246, 0.08) 0%, transparent 50%);
+            animation: ${pulse} 8s ease-in-out infinite;
+        }
+    }
+
+    @media (min-width: 1280px) {
+        padding: 80px;
+    }
+`;
+
+const RightPanel = styled.div`
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing-xl);
+
+    @media (min-width: 1024px) {
+        width: 50%;
+        min-height: 100vh;
+        padding: 60px;
+    }
+
+    @media (min-width: 1280px) {
+        padding: 80px;
+    }
+`;
+
+const DesktopBranding = styled.div`
+    text-align: center;
+    max-width: 500px;
+    z-index: 1;
+`;
+
+const DesktopLogoWrapper = styled.div`
+    width: 120px;
+    height: 120px;
+    border-radius: 32px;
+    background: linear-gradient(135deg, #8B5CF6 0%, #EC4899 50%, #06B6D4 100%);
+    background-size: 200% 200%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto var(--spacing-xl);
+    animation: ${float} 6s ease-in-out infinite, ${glow} 3s ease-in-out infinite, ${gradientShift} 8s ease infinite;
+    position: relative;
+
+    &::before {
+        content: '';
+        position: absolute;
+        inset: -4px;
+        border-radius: 36px;
+        background: linear-gradient(135deg, #8B5CF6, #EC4899, #06B6D4, #8B5CF6);
+        background-size: 400% 400%;
+        animation: ${gradientShift} 4s ease infinite;
+        z-index: -1;
+        filter: blur(20px);
+        opacity: 0.7;
+    }
+
+    svg {
+        font-size: 60px;
+        color: white;
+        filter: drop-shadow(0 0 15px rgba(255, 255, 255, 0.5));
+    }
+`;
+
+const DesktopTitle = styled.h1`
+    font-size: 4rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #8B5CF6 0%, #EC4899 50%, #06B6D4 100%);
+    background-size: 200% 200%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: var(--spacing-md);
+    letter-spacing: -2px;
+    animation: ${gradientShift} 6s ease infinite;
+
+    @media (min-width: 1280px) {
+        font-size: 5rem;
+    }
+`;
+
+const DesktopSubtitle = styled.p`
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 1.4rem;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    margin-bottom: var(--spacing-xl);
+    line-height: 1.6;
+
+    @media (min-width: 1280px) {
+        font-size: 1.6rem;
+    }
+`;
+
+const DesktopFeatures = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+    margin-top: var(--spacing-xl);
+`;
+
+const DesktopFeatureItem = styled.div`
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-lg);
+    padding: var(--spacing-lg) var(--spacing-xl);
+    background: rgba(30, 30, 58, 0.5);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    transition: all 0.3s ease;
+
+    &:hover {
+        transform: translateX(10px);
+        border-color: rgba(139, 92, 246, 0.5);
+        box-shadow: 0 8px 32px rgba(139, 92, 246, 0.2);
+    }
+`;
+
+const DesktopFeatureIcon = styled.div`
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.3) 0%, rgba(236, 72, 153, 0.3) 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+
+    svg {
+        font-size: 1.8rem;
+        color: #8B5CF6;
+    }
+
+    ${DesktopFeatureItem}:hover & {
+        background: linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%);
+
+        svg {
+            color: white;
+        }
+    }
+`;
+
+const DesktopFeatureText = styled.div`
+    h4 {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: white;
+        margin-bottom: 4px;
+    }
+
+    p {
+        font-size: 0.95rem;
+        color: rgba(255, 255, 255, 0.6);
     }
 `;
 
@@ -337,10 +578,18 @@ const LoginContent = styled.div`
     flex-direction: column;
     gap: var(--spacing-xl);
     animation: ${fadeInUp} 0.6s ease-out;
+
+    @media (min-width: 1024px) {
+        max-width: 440px;
+    }
 `;
 
 const BrandingSection = styled.div`
     text-align: center;
+
+    @media (min-width: 1024px) {
+        display: none;
+    }
 `;
 
 const LogoWrapper = styled.div`
@@ -423,6 +672,14 @@ const LoginCard = styled.div`
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3),
                 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
 
+    @media (min-width: 1024px) {
+        padding: 40px;
+        border-radius: 24px;
+        box-shadow: 0 12px 48px rgba(0, 0, 0, 0.4),
+                    0 0 0 1px rgba(255, 255, 255, 0.08) inset,
+                    0 0 60px rgba(139, 92, 246, 0.15);
+    }
+
     @media (max-width: 480px) {
         padding: var(--spacing-lg);
     }
@@ -431,6 +688,10 @@ const LoginCard = styled.div`
 const CardHeader = styled.div`
     text-align: center;
     margin-bottom: var(--spacing-xl);
+
+    @media (min-width: 1024px) {
+        margin-bottom: 32px;
+    }
 `;
 
 const WelcomeTitle = styled.h2`
@@ -438,6 +699,14 @@ const WelcomeTitle = styled.h2`
     font-weight: 700;
     color: white;
     margin-bottom: var(--spacing-xs);
+
+    @media (min-width: 1024px) {
+        font-size: 2rem;
+        background: linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
 
     @media (max-width: 480px) {
         font-size: 1.4rem;
@@ -447,6 +716,10 @@ const WelcomeTitle = styled.h2`
 const WelcomeSubtitle = styled.p`
     color: rgba(255, 255, 255, 0.6);
     font-size: 0.95rem;
+
+    @media (min-width: 1024px) {
+        font-size: 1.05rem;
+    }
 `;
 
 const GoogleButton = styled.button`
@@ -551,6 +824,10 @@ const FeaturesGrid = styled.div`
     grid-template-columns: repeat(3, 1fr);
     gap: var(--spacing-md);
 
+    @media (min-width: 1024px) {
+        display: none;
+    }
+
     @media (max-width: 480px) {
         grid-template-columns: 1fr;
         gap: var(--spacing-sm);
@@ -631,13 +908,11 @@ const FeatureDescription = styled.p`
 `;
 
 const Footer = styled.footer`
-    position: absolute;
-    bottom: var(--spacing-lg);
     z-index: 1;
+    text-align: center;
+    margin-top: var(--spacing-lg);
 
-    @media (max-width: 480px) {
-        position: relative;
-        bottom: 0;
+    @media (min-width: 1024px) {
         margin-top: var(--spacing-xl);
     }
 `;

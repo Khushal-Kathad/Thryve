@@ -212,6 +212,11 @@ const Container = styled.div`
     position: relative;
     overflow: hidden;
 
+    @media (min-width: 1024px) {
+        height: calc(100vh - 70px);
+        margin-top: 70px;
+    }
+
     @media (max-width: 768px) {
         height: calc(100vh - var(--header-height) - var(--bottom-nav-height, 70px));
     }
@@ -226,6 +231,10 @@ const Header = styled.div`
     background-size: 200% 200%;
     animation: ${gradientShift} 8s ease infinite;
     flex-shrink: 0;
+
+    @media (min-width: 1024px) {
+        padding: 20px 32px;
+    }
 `;
 
 const HeaderLeft = styled.div`
@@ -282,6 +291,19 @@ const SettingsContent = styled.div`
     flex-direction: column;
     gap: 12px;
     overflow-y: auto;
+    max-width: 800px;
+    margin: 0 auto;
+    width: 100%;
+
+    @media (min-width: 1024px) {
+        padding: 24px 32px;
+        gap: 16px;
+    }
+
+    @media (min-width: 1280px) {
+        max-width: 900px;
+        padding: 32px 40px;
+    }
 `;
 
 const Section = styled.div`
@@ -291,6 +313,16 @@ const Section = styled.div`
     border-radius: 16px;
     overflow: hidden;
     animation: ${fadeIn} 0.3s ease-out;
+    transition: all 0.3s ease;
+
+    &:hover {
+        border-color: rgba(139, 92, 246, 0.3);
+        box-shadow: 0 8px 32px rgba(139, 92, 246, 0.15);
+    }
+
+    @media (min-width: 1024px) {
+        border-radius: 20px;
+    }
 `;
 
 const SectionHeader = styled.div`
@@ -354,6 +386,15 @@ const SettingsGrid = styled.div`
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: 10px;
+
+    @media (min-width: 768px) {
+        gap: 16px;
+    }
+
+    @media (min-width: 1024px) {
+        grid-template-columns: repeat(4, 1fr);
+        gap: 20px;
+    }
 `;
 
 const SettingCard = styled.div`
@@ -377,6 +418,17 @@ const SettingCard = styled.div`
     &:active {
         transform: scale(0.98);
     }
+
+    @media (min-width: 1024px) {
+        padding: 20px 16px;
+        gap: 12px;
+        border-radius: 16px;
+
+        &:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(139, 92, 246, 0.2);
+        }
+    }
 `;
 
 const SettingIconBox = styled.div<{ $active: boolean }>`
@@ -398,6 +450,16 @@ const SettingIconBox = styled.div<{ $active: boolean }>`
     svg {
         font-size: 1.2rem;
         color: ${props => props.$active ? 'white' : 'rgba(255, 255, 255, 0.5)'};
+    }
+
+    @media (min-width: 1024px) {
+        width: 56px;
+        height: 56px;
+        border-radius: 14px;
+
+        svg {
+            font-size: 1.5rem;
+        }
     }
 `;
 

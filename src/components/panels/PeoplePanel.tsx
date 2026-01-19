@@ -188,6 +188,11 @@ const Container = styled.div`
     height: calc(100vh - var(--header-height));
     margin-top: var(--header-height);
     background: var(--bg-chat);
+
+    @media (min-width: 1024px) {
+        height: calc(100vh - 70px);
+        margin-top: 70px;
+    }
 `;
 
 const Header = styled.div`
@@ -196,7 +201,11 @@ const Header = styled.div`
     justify-content: space-between;
     padding: var(--spacing-lg);
     border-bottom: 1px solid var(--glass-border);
-    background: var(--glass-bg);
+    background: linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%);
+
+    @media (min-width: 1024px) {
+        padding: 20px 32px;
+    }
 `;
 
 const Title = styled.h2`
@@ -205,11 +214,15 @@ const Title = styled.h2`
     gap: var(--spacing-sm);
     font-size: 1.2rem;
     font-weight: 600;
-    color: var(--text-primary);
+    color: white;
     margin: 0;
 
     svg {
-        color: var(--accent-primary);
+        color: white;
+    }
+
+    @media (min-width: 1024px) {
+        font-size: 1.4rem;
     }
 `;
 
@@ -219,12 +232,12 @@ const CloseButton = styled.button`
     justify-content: center;
     padding: var(--spacing-sm);
     border-radius: var(--radius-md);
-    color: var(--text-muted);
+    color: rgba(255, 255, 255, 0.8);
     transition: all var(--transition-fast);
 
     &:hover {
-        background: var(--glass-bg-hover);
-        color: var(--text-primary);
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
     }
 `;
 
@@ -255,6 +268,11 @@ const Stats = styled.div`
     gap: var(--spacing-lg);
     padding: var(--spacing-lg);
     border-bottom: 1px solid var(--glass-border);
+
+    @media (min-width: 1024px) {
+        padding: 20px 32px;
+        gap: 40px;
+    }
 `;
 
 const StatItem = styled.div`
@@ -265,17 +283,32 @@ const StatValue = styled.div`
     font-size: 1.5rem;
     font-weight: 700;
     color: var(--accent-primary);
+
+    @media (min-width: 1024px) {
+        font-size: 2rem;
+    }
 `;
 
 const StatLabel = styled.div`
     font-size: 0.8rem;
     color: var(--text-muted);
+
+    @media (min-width: 1024px) {
+        font-size: 0.9rem;
+    }
 `;
 
 const UsersList = styled.div`
     flex: 1;
     overflow-y: auto;
     padding: var(--spacing-md);
+
+    @media (min-width: 1024px) {
+        padding: 20px 32px;
+        max-width: 1200px;
+        margin: 0 auto;
+        width: 100%;
+    }
 `;
 
 const SectionTitle = styled.div`
@@ -303,6 +336,20 @@ const UserItem = styled.div<{ $offline?: boolean }>`
     &:hover {
         background: var(--glass-bg-hover);
     }
+
+    @media (min-width: 1024px) {
+        padding: 16px 20px;
+        border-radius: 14px;
+        background: rgba(30, 30, 58, 0.3);
+        border: 1px solid transparent;
+        margin-bottom: 8px;
+
+        &:hover {
+            background: rgba(139, 92, 246, 0.1);
+            border-color: rgba(139, 92, 246, 0.3);
+            transform: translateX(4px);
+        }
+    }
 `;
 
 const UserAvatar = styled.div`
@@ -325,6 +372,15 @@ const UserAvatar = styled.div`
     > svg {
         font-size: 1.5rem;
         color: var(--text-muted);
+    }
+
+    @media (min-width: 1024px) {
+        width: 52px;
+        height: 52px;
+
+        > svg {
+            font-size: 1.8rem;
+        }
     }
 `;
 
@@ -379,6 +435,15 @@ const UserActions = styled.div`
     ${UserItem}:hover & {
         opacity: 1;
     }
+
+    @media (min-width: 1024px) {
+        opacity: 0.7;
+        gap: var(--spacing-sm);
+
+        ${UserItem}:hover & {
+            opacity: 1;
+        }
+    }
 `;
 
 const ActionButton = styled.button`
@@ -397,6 +462,22 @@ const ActionButton = styled.button`
     &:hover {
         background: var(--glass-bg);
         color: var(--accent-primary);
+    }
+
+    @media (min-width: 1024px) {
+        padding: 10px;
+        border-radius: 12px;
+        background: rgba(139, 92, 246, 0.1);
+
+        svg {
+            font-size: 1.2rem;
+        }
+
+        &:hover {
+            background: linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%);
+            color: white;
+            transform: scale(1.1);
+        }
     }
 `;
 

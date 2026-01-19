@@ -49,6 +49,10 @@ export const WelcomeScreen = styled.div`
     justify-content: center;
     padding: var(--spacing-xl);
     background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+
+    @media (min-width: 1024px) {
+        padding: 60px;
+    }
 `;
 
 export const WelcomeContent = styled.div`
@@ -58,6 +62,10 @@ export const WelcomeContent = styled.div`
     text-align: center;
     max-width: 480px;
     animation: ${fadeIn} 0.5s ease-out;
+
+    @media (min-width: 1024px) {
+        max-width: 600px;
+    }
 `;
 
 export const WelcomeIcon = styled.div`
@@ -76,6 +84,16 @@ export const WelcomeIcon = styled.div`
         font-size: 50px;
         color: white;
     }
+
+    @media (min-width: 1024px) {
+        width: 140px;
+        height: 140px;
+        border-radius: 32px;
+
+        svg {
+            font-size: 70px;
+        }
+    }
 `;
 
 export const WelcomeTitle = styled.h1`
@@ -86,6 +104,10 @@ export const WelcomeTitle = styled.h1`
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
+
+    @media (min-width: 1024px) {
+        font-size: 2.8rem;
+    }
 
     @media (max-width: 480px) {
         font-size: 1.5rem;
@@ -158,6 +180,14 @@ export const ChatHeaderContainer = styled.div`
     border-bottom: 1px solid var(--border-default);
     box-shadow: var(--shadow-sm);
     gap: var(--spacing-md);
+
+    @media (min-width: 1024px) {
+        padding: 12px 24px;
+    }
+
+    @media (min-width: 1280px) {
+        padding: 14px 32px;
+    }
 
     @media (max-width: 768px) {
         padding: var(--spacing-sm) var(--spacing-md);
@@ -421,6 +451,22 @@ export const ChatMessages = styled.div`
 
     &::-webkit-scrollbar-thumb:hover {
         background: var(--text-muted);
+    }
+
+    @media (min-width: 1024px) {
+        padding: 20px 32px;
+        max-width: 1000px;
+        margin: 0 auto;
+        width: 100%;
+
+        &::-webkit-scrollbar {
+            width: 8px;
+        }
+    }
+
+    @media (min-width: 1280px) {
+        padding: 24px 40px;
+        max-width: 1100px;
     }
 
     @media (max-width: 768px) {

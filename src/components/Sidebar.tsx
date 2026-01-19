@@ -541,6 +541,19 @@ const SidebarContainer = styled.aside<{ $isOpen: boolean; $isCollapsed: boolean 
     overflow: hidden;
     transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
+    @media (min-width: 1024px) {
+        height: calc(100vh - 70px);
+        height: calc(100dvh - 70px);
+        margin-top: 70px;
+        width: ${({ $isCollapsed }) => $isCollapsed ? '80px' : '320px'};
+        min-width: ${({ $isCollapsed }) => $isCollapsed ? '80px' : '320px'};
+    }
+
+    @media (min-width: 1280px) {
+        width: ${({ $isCollapsed }) => $isCollapsed ? '80px' : '340px'};
+        min-width: ${({ $isCollapsed }) => $isCollapsed ? '80px' : '340px'};
+    }
+
     @media (max-width: 768px) {
         position: fixed;
         top: 0;
