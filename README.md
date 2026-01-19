@@ -358,14 +358,5 @@ VITE_AGORA_TOKEN_WORKER_URL=https://agora-token.YOUR_SUBDOMAIN.workers.dev
 - **Firebase Rules**: Firestore security rules for data access
 - **HTTPS Only**: All communications encrypted
 
-## Documentation
-
-- [my_demone.md](./my_demone.md) - Detailed technical documentation for developers
-
-## License
-
-MIT License
-
----
 
 Built with React, Firebase & Cloudflare
